@@ -1,2 +1,0 @@
-ANIME|1|Watching|5
-ANIME|2|Completed|24
