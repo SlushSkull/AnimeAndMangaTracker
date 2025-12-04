@@ -1,9 +1,60 @@
 import javax.swing.*;
+import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.awt.event.*;
 import java.io.*;
+import java.net.URL;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.*;
+
+// Image loader utility
+class ImageLoader {
+    private static final Map<String, ImageIcon> imageCache = new ConcurrentHashMap<>();
+    private static final ExecutorService executor = Executors.newFixedThreadPool(3);
+    
+    public static void loadImageAsync(String url, int width, int height, JLabel label) {
+        if (url == null || url.trim().isEmpty()) {
+            label.setIcon(createPlaceholderIcon(width, height));
+            return;
+        }
+        
+        if (imageCache.containsKey(url)) {
+            label.setIcon(imageCache.get(url));
+            return;
+        }
+        
+        label.setIcon(createPlaceholderIcon(width, height));
+        
+        executor.submit(() -> {
+            try {
+                BufferedImage img = ImageIO.read(new URL(url));
+                if (img != null) {
+                    Image scaledImg = img.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+                    ImageIcon icon = new ImageIcon(scaledImg);
+                    imageCache.put(url, icon);
+                    SwingUtilities.invokeLater(() -> label.setIcon(icon));
+                }
+            } catch (Exception e) {
+                SwingUtilities.invokeLater(() -> label.setIcon(createPlaceholderIcon(width, height)));
+            }
+        });
+    }
+    
+    private static ImageIcon createPlaceholderIcon(int width, int height) {
+        BufferedImage placeholder = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = placeholder.createGraphics();
+        g2d.setColor(new Color(200, 200, 200));
+        g2d.fillRect(0, 0, width, height);
+        g2d.setColor(new Color(150, 150, 150));
+        g2d.drawRect(0, 0, width - 1, height - 1);
+        g2d.setFont(new Font("Arial", Font.PLAIN, 12));
+        g2d.drawString("No Image", width / 2 - 25, height / 2);
+        g2d.dispose();
+        return new ImageIcon(placeholder);
+    }
+}
 
 // Abstract Show class
 abstract class Show {
@@ -472,9 +523,9 @@ public class AnimeTrackerApp extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(Color.WHITE);
         
-        DefaultListModel<String> listModel = new DefaultListModel<>();
-        JList<String> list = new JList<>(listModel);
-        list.setFont(new Font("Arial", Font.PLAIN, 14));
+        JPanel gridPanel = new JPanel(new GridLayout(0, 3, 10, 10));
+        gridPanel.setBackground(Color.WHITE);
+        gridPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
         Map<String, List<UserShowEntry>> userAnime = api.getUserAnime(currentUser);
         List<Anime> allAnime = api.getAllAnime();
@@ -482,46 +533,69 @@ public class AnimeTrackerApp extends JFrame {
         for (UserShowEntry entry : userAnime.get(status)) {
             for (Anime anime : allAnime) {
                 if (anime.getId().equals(entry.getShowId())) {
-                    listModel.addElement(anime.getTitle() + " - " + entry.getProgress() + "/" + 
-                                       anime.getTotalEpisodes() + " eps (ID: " + anime.getId() + ")");
+                    JPanel card = createAnimeCard(anime, entry, status);
+                    gridPanel.add(card);
                 }
             }
         }
         
-        JScrollPane scrollPane = new JScrollPane(list);
+        JScrollPane scrollPane = new JScrollPane(gridPanel);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         panel.add(scrollPane, BorderLayout.CENTER);
         
-        JPanel btnPanel = new JPanel();
-        
-        JButton editBtn = createStyledButton("Edit Selected");
-        editBtn.addActionListener(e -> {
-            String selected = list.getSelectedValue();
-            if (selected != null) {
-                String id = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
-                editAnime(id, status);
-            }
-        });
-        
-        JButton removeBtn = createStyledButton("Remove Selected");
-        removeBtn.addActionListener(e -> {
-            String selected = list.getSelectedValue();
-            if (selected != null) {
-                String id = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
-                try {
-                    api.removeFromUserList(currentUser, id, "ANIME");
-                    listModel.removeElement(selected);
-                    JOptionPane.showMessageDialog(this, "Removed successfully!");
-                } catch (IOException ex) {
-                    JOptionPane.showMessageDialog(this, "Error removing anime!");
-                }
-            }
-        });
-        
-        btnPanel.add(editBtn);
-        btnPanel.add(removeBtn);
-        panel.add(btnPanel, BorderLayout.SOUTH);
-        
         return panel;
+    }
+    
+    private JPanel createAnimeCard(Anime anime, UserShowEntry entry, String status) {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setPreferredSize(new Dimension(200, 320));
+        card.setBorder(BorderFactory.createLineBorder(Theme.SECONDARY, 2));
+        card.setBackground(Color.WHITE);
+        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        // Image panel
+        JLabel imageLabel = new JLabel();
+        imageLabel.setPreferredSize(new Dimension(200, 280));
+        imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        ImageLoader.loadImageAsync(anime.getImageUrl(), 196, 280, imageLabel);
+        
+        // Info panel
+        JPanel infoPanel = new JPanel(new BorderLayout());
+        infoPanel.setBackground(Theme.BACKGROUND);
+        infoPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        
+        JLabel titleLabel = new JLabel("<html><center>" + anime.getTitle() + "</center></html>");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        
+        JLabel progressLabel = new JLabel(entry.getProgress() + "/" + anime.getTotalEpisodes() + " eps");
+        progressLabel.setFont(new Font("Arial", Font.PLAIN, 11));
+        progressLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        progressLabel.setForeground(Theme.PRIMARY);
+        
+        infoPanel.add(titleLabel, BorderLayout.NORTH);
+        infoPanel.add(progressLabel, BorderLayout.SOUTH);
+        
+        card.add(imageLabel, BorderLayout.CENTER);
+        card.add(infoPanel, BorderLayout.SOUTH);
+        
+        // Click listener
+        MouseAdapter clickListener = new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) {
+                editAnime(anime.getId(), status);
+            }
+            public void mouseEntered(MouseEvent e) {
+                card.setBorder(BorderFactory.createLineBorder(Theme.PRIMARY, 3));
+            }
+            public void mouseExited(MouseEvent e) {
+                card.setBorder(BorderFactory.createLineBorder(Theme.SECONDARY, 2));
+            }
+        };
+        
+        card.addMouseListener(clickListener);
+        imageLabel.addMouseListener(clickListener);
+        
+        return card;
     }
     
     private void editAnime(String animeId, String currentStatus) {
