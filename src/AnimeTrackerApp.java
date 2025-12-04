@@ -83,6 +83,23 @@ class Manga extends Show {
     }
 }
 
+// UserShowEntry class to hold status and progress
+class UserShowEntry {
+    private String status;
+    private int progress;
+    private String showId;
+    
+    public UserShowEntry(String status, int progress) {
+        this.status = status;
+        this.progress = progress;
+    }
+    
+    public String getStatus() { return status; }
+    public int getProgress() { return progress; }
+    public String getShowId() { return showId; }
+    public void setShowId(String showId) { this.showId = showId; }
+}
+
 // Theme class
 class Theme {
     public static final Color PRIMARY = new Color(41, 128, 185);
@@ -162,15 +179,54 @@ class TrackerAPI {
         return new File(USERS_DIR + username + ".txt").exists();
     }
     
-    public void addToUserList(String username, String showId, String status, String type) throws IOException {
+    public void addToUserList(String username, String showId, String status, String type, int progress) throws IOException {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(USERS_DIR + username + ".txt", true))) {
-            writer.write(type + "|" + showId + "|" + status);
+            writer.write(type + "|" + showId + "|" + status + "|" + progress);
             writer.newLine();
         }
     }
     
-    public Map<String, List<String>> getUserAnime(String username) {
-        Map<String, List<String>> animeByStatus = new HashMap<>();
+    public void updateUserEntry(String username, String showId, String type, String newStatus, int newProgress) throws IOException {
+        File userFile = new File(USERS_DIR + username + ".txt");
+        List<String> lines = new ArrayList<>();
+        
+        try (BufferedReader reader = new BufferedReader(new FileReader(userFile))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split("\\|");
+                if (parts[0].equals(type) && parts[1].equals(showId)) {
+                    lines.add(type + "|" + showId + "|" + newStatus + "|" + newProgress);
+                } else {
+                    lines.add(line);
+                }
+            }
+        }
+        
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(userFile))) {
+            for (String line : lines) {
+                writer.write(line);
+                writer.newLine();
+            }
+        }
+    }
+    
+    public UserShowEntry getUserShowEntry(String username, String showId, String type) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(USERS_DIR + username + ".txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split("\\|");
+                if (parts[0].equals(type) && parts[1].equals(showId)) {
+                    return new UserShowEntry(parts[2], Integer.parseInt(parts[3]));
+                }
+            }
+        } catch (IOException e) {
+            // File doesn't exist yet
+        }
+        return null;
+    }
+    
+    public Map<String, List<UserShowEntry>> getUserAnime(String username) {
+        Map<String, List<UserShowEntry>> animeByStatus = new HashMap<>();
         animeByStatus.put("Watching", new ArrayList<>());
         animeByStatus.put("Completed", new ArrayList<>());
         animeByStatus.put("Plan to Watch", new ArrayList<>());
@@ -181,7 +237,9 @@ class TrackerAPI {
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("\\|");
                 if (parts[0].equals("ANIME")) {
-                    animeByStatus.get(parts[2]).add(parts[1]);
+                    UserShowEntry entry = new UserShowEntry(parts[2], Integer.parseInt(parts[3]));
+                    entry.setShowId(parts[1]);
+                    animeByStatus.get(parts[2]).add(entry);
                 }
             }
         } catch (IOException e) {
@@ -190,8 +248,8 @@ class TrackerAPI {
         return animeByStatus;
     }
     
-    public Map<String, List<String>> getUserManga(String username) {
-        Map<String, List<String>> mangaByStatus = new HashMap<>();
+    public Map<String, List<UserShowEntry>> getUserManga(String username) {
+        Map<String, List<UserShowEntry>> mangaByStatus = new HashMap<>();
         mangaByStatus.put("Reading", new ArrayList<>());
         mangaByStatus.put("Completed", new ArrayList<>());
         mangaByStatus.put("Plan to Read", new ArrayList<>());
@@ -202,7 +260,9 @@ class TrackerAPI {
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("\\|");
                 if (parts[0].equals("MANGA")) {
-                    mangaByStatus.get(parts[2]).add(parts[1]);
+                    UserShowEntry entry = new UserShowEntry(parts[2], Integer.parseInt(parts[3]));
+                    entry.setShowId(parts[1]);
+                    mangaByStatus.get(parts[2]).add(entry);
                 }
             }
         } catch (IOException e) {
@@ -416,19 +476,31 @@ public class AnimeTrackerApp extends JFrame {
         JList<String> list = new JList<>(listModel);
         list.setFont(new Font("Arial", Font.PLAIN, 14));
         
-        Map<String, List<String>> userAnime = api.getUserAnime(currentUser);
+        Map<String, List<UserShowEntry>> userAnime = api.getUserAnime(currentUser);
         List<Anime> allAnime = api.getAllAnime();
         
-        for (String animeId : userAnime.get(status)) {
+        for (UserShowEntry entry : userAnime.get(status)) {
             for (Anime anime : allAnime) {
-                if (anime.getId().equals(animeId)) {
-                    listModel.addElement(anime.getTitle() + " (ID: " + anime.getId() + ")");
+                if (anime.getId().equals(entry.getShowId())) {
+                    listModel.addElement(anime.getTitle() + " - " + entry.getProgress() + "/" + 
+                                       anime.getTotalEpisodes() + " eps (ID: " + anime.getId() + ")");
                 }
             }
         }
         
         JScrollPane scrollPane = new JScrollPane(list);
         panel.add(scrollPane, BorderLayout.CENTER);
+        
+        JPanel btnPanel = new JPanel();
+        
+        JButton editBtn = createStyledButton("Edit Selected");
+        editBtn.addActionListener(e -> {
+            String selected = list.getSelectedValue();
+            if (selected != null) {
+                String id = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
+                editAnime(id, status);
+            }
+        });
         
         JButton removeBtn = createStyledButton("Remove Selected");
         removeBtn.addActionListener(e -> {
@@ -445,11 +517,70 @@ public class AnimeTrackerApp extends JFrame {
             }
         });
         
-        JPanel btnPanel = new JPanel();
+        btnPanel.add(editBtn);
         btnPanel.add(removeBtn);
         panel.add(btnPanel, BorderLayout.SOUTH);
         
         return panel;
+    }
+    
+    private void editAnime(String animeId, String currentStatus) {
+        Anime anime = null;
+        for (Anime a : api.getAllAnime()) {
+            if (a.getId().equals(animeId)) {
+                anime = a;
+                break;
+            }
+        }
+        
+        if (anime == null) return;
+        
+        UserShowEntry entry = api.getUserShowEntry(currentUser, animeId, "ANIME");
+        
+        JPanel editPanel = new JPanel(new GridLayout(3, 2, 10, 10));
+        
+        JLabel titleLabel = new JLabel("Editing: " + anime.getTitle());
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        
+        JSpinner episodeSpinner = new JSpinner(new SpinnerNumberModel(
+            entry.getProgress(), 0, anime.getTotalEpisodes(), 1));
+        
+        String[] statuses = {"Watching", "Completed", "Plan to Watch", "Dropped"};
+        JComboBox<String> statusCombo = new JComboBox<>(statuses);
+        statusCombo.setSelectedItem(currentStatus);
+        
+        editPanel.add(titleLabel);
+        editPanel.add(new JLabel(""));
+        editPanel.add(new JLabel("Episodes Watched:"));
+        editPanel.add(episodeSpinner);
+        editPanel.add(new JLabel("Status:"));
+        editPanel.add(statusCombo);
+        
+        int result = JOptionPane.showConfirmDialog(this, editPanel, "Edit Anime Progress",
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        
+        if (result == JOptionPane.OK_OPTION) {
+            try {
+                int newProgress = (Integer) episodeSpinner.getValue();
+                String newStatus = (String) statusCombo.getSelectedItem();
+                
+                // Auto-complete if watched all episodes
+                if (newProgress == anime.getTotalEpisodes() && !newStatus.equals("Completed")) {
+                    int choice = JOptionPane.showConfirmDialog(this, 
+                        "You've watched all episodes. Mark as Completed?", 
+                        "Complete Anime", JOptionPane.YES_NO_OPTION);
+                    if (choice == JOptionPane.YES_OPTION) {
+                        newStatus = "Completed";
+                    }
+                }
+                
+                api.updateUserEntry(currentUser, animeId, "ANIME", newStatus, newProgress);
+                JOptionPane.showMessageDialog(this, "Updated successfully!");
+                showUserDashboard(); // Refresh the dashboard
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this, "Error updating anime!");
+            }
+        }
     }
     
     private JPanel createMangaStatusPanel(String status) {
@@ -460,19 +591,31 @@ public class AnimeTrackerApp extends JFrame {
         JList<String> list = new JList<>(listModel);
         list.setFont(new Font("Arial", Font.PLAIN, 14));
         
-        Map<String, List<String>> userManga = api.getUserManga(currentUser);
+        Map<String, List<UserShowEntry>> userManga = api.getUserManga(currentUser);
         List<Manga> allManga = api.getAllManga();
         
-        for (String mangaId : userManga.get(status)) {
+        for (UserShowEntry entry : userManga.get(status)) {
             for (Manga manga : allManga) {
-                if (manga.getId().equals(mangaId)) {
-                    listModel.addElement(manga.getTitle() + " (ID: " + manga.getId() + ")");
+                if (manga.getId().equals(entry.getShowId())) {
+                    listModel.addElement(manga.getTitle() + " - " + entry.getProgress() + "/" + 
+                                       manga.getTotalChapters() + " chs (ID: " + manga.getId() + ")");
                 }
             }
         }
         
         JScrollPane scrollPane = new JScrollPane(list);
         panel.add(scrollPane, BorderLayout.CENTER);
+        
+        JPanel btnPanel = new JPanel();
+        
+        JButton editBtn = createStyledButton("Edit Selected");
+        editBtn.addActionListener(e -> {
+            String selected = list.getSelectedValue();
+            if (selected != null) {
+                String id = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
+                editManga(id, status);
+            }
+        });
         
         JButton removeBtn = createStyledButton("Remove Selected");
         removeBtn.addActionListener(e -> {
@@ -489,11 +632,70 @@ public class AnimeTrackerApp extends JFrame {
             }
         });
         
-        JPanel btnPanel = new JPanel();
+        btnPanel.add(editBtn);
         btnPanel.add(removeBtn);
         panel.add(btnPanel, BorderLayout.SOUTH);
         
         return panel;
+    }
+    
+    private void editManga(String mangaId, String currentStatus) {
+        Manga manga = null;
+        for (Manga m : api.getAllManga()) {
+            if (m.getId().equals(mangaId)) {
+                manga = m;
+                break;
+            }
+        }
+        
+        if (manga == null) return;
+        
+        UserShowEntry entry = api.getUserShowEntry(currentUser, mangaId, "MANGA");
+        
+        JPanel editPanel = new JPanel(new GridLayout(3, 2, 10, 10));
+        
+        JLabel titleLabel = new JLabel("Editing: " + manga.getTitle());
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        
+        JSpinner chapterSpinner = new JSpinner(new SpinnerNumberModel(
+            entry.getProgress(), 0, manga.getTotalChapters(), 1));
+        
+        String[] statuses = {"Reading", "Completed", "Plan to Read", "Dropped"};
+        JComboBox<String> statusCombo = new JComboBox<>(statuses);
+        statusCombo.setSelectedItem(currentStatus);
+        
+        editPanel.add(titleLabel);
+        editPanel.add(new JLabel(""));
+        editPanel.add(new JLabel("Chapters Read:"));
+        editPanel.add(chapterSpinner);
+        editPanel.add(new JLabel("Status:"));
+        editPanel.add(statusCombo);
+        
+        int result = JOptionPane.showConfirmDialog(this, editPanel, "Edit Manga Progress",
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        
+        if (result == JOptionPane.OK_OPTION) {
+            try {
+                int newProgress = (Integer) chapterSpinner.getValue();
+                String newStatus = (String) statusCombo.getSelectedItem();
+                
+                // Auto-complete if read all chapters
+                if (newProgress == manga.getTotalChapters() && !newStatus.equals("Completed")) {
+                    int choice = JOptionPane.showConfirmDialog(this, 
+                        "You've read all chapters. Mark as Completed?", 
+                        "Complete Manga", JOptionPane.YES_NO_OPTION);
+                    if (choice == JOptionPane.YES_OPTION) {
+                        newStatus = "Completed";
+                    }
+                }
+                
+                api.updateUserEntry(currentUser, mangaId, "MANGA", newStatus, newProgress);
+                JOptionPane.showMessageDialog(this, "Updated successfully!");
+                showUserDashboard(); // Refresh the dashboard
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this, "Error updating manga!");
+            }
+        }
     }
     
     private void addAnimeToList() {
@@ -518,7 +720,7 @@ public class AnimeTrackerApp extends JFrame {
             if (status != null) {
                 String id = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
                 try {
-                    api.addToUserList(currentUser, id, status, "ANIME");
+                    api.addToUserList(currentUser, id, status, "ANIME", 0);
                     JOptionPane.showMessageDialog(this, "Anime added successfully!");
                     showUserDashboard();
                 } catch (IOException ex) {
@@ -550,7 +752,7 @@ public class AnimeTrackerApp extends JFrame {
             if (status != null) {
                 String id = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
                 try {
-                    api.addToUserList(currentUser, id, status, "MANGA");
+                    api.addToUserList(currentUser, id, status, "MANGA", 0);
                     JOptionPane.showMessageDialog(this, "Manga added successfully!");
                     showUserDashboard();
                 } catch (IOException ex) {
