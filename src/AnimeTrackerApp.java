@@ -460,12 +460,12 @@ public class AnimeTrackerApp extends JFrame {
         JButton adminBtn = createStyledButton("Admin Menu");
         adminBtn.addActionListener(e -> cardLayout.show(mainPanel, "ADMIN"));
         
-        JButton settingsBtn = createStyledButton("Settings");
-        settingsBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Settings coming soon!"));
+        JButton exitBtn = createStyledButton("Exit");
+        exitBtn.addActionListener(e -> System.exit(0));
         
         gbc.gridy = 0; buttonPanel.add(loginBtn, gbc);
         gbc.gridy = 1; buttonPanel.add(adminBtn, gbc);
-        gbc.gridy = 2; buttonPanel.add(settingsBtn, gbc);
+        gbc.gridy = 2; buttonPanel.add(exitBtn, gbc);
         
         panel.add(buttonPanel, BorderLayout.CENTER);
         return panel;
