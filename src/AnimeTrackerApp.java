@@ -188,6 +188,10 @@ class TrackerAPI {
     public String generateAnimeId() {
         return java.util.UUID.randomUUID().toString();
     }
+    // Return a new unique Manga ID (UUID-based)
+    public String generateMangaId() {
+        return java.util.UUID.randomUUID().toString();
+    }
     
     // Anime database methods
     public void addAnime(Anime anime) throws IOException {
@@ -366,26 +370,86 @@ class TrackerAPI {
         mangaByStatus.put("Completed", new ArrayList<>());
         mangaByStatus.put("Plan to Read", new ArrayList<>());
         mangaByStatus.put("Dropped", new ArrayList<>());
-        
-        try (BufferedReader reader = new BufferedReader(new FileReader(USERS_DIR + username + ".txt"))) {
+        // Read all lines first so we can attempt to correct malformed showIds (e.g., title instead of ID)
+        File userFile = new File(USERS_DIR + username + ".txt");
+        if (!userFile.exists()) return mangaByStatus;
+
+        List<String> lines = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(userFile))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                String[] parts = line.split("\\|");
-                if (parts[0].equals("MANGA")) {
-                    int prog = Integer.parseInt(parts[3]);
-                    int rating = -1;
-                    if (parts.length >= 5) {
-                        try { rating = Integer.parseInt(parts[4]); } catch (NumberFormatException nf) { rating = -1; }
-                    }
-                    UserShowEntry entry = new UserShowEntry(parts[2], prog, rating);
-                    entry.setShowId(parts[1]);
-                    List<UserShowEntry> list = mangaByStatus.get(parts[2]);
-                    if (list != null) list.add(entry);
-                }
+                if (!line.trim().isEmpty()) lines.add(line);
             }
         } catch (IOException e) {
-            // File doesn't exist yet
+            return mangaByStatus;
         }
+
+        List<String> outLines = new ArrayList<>();
+        boolean changed = false;
+        List<Manga> allManga = getAllManga();
+
+        for (String line : lines) {
+            String[] parts = line.split("\\|");
+            if (parts.length >= 4 && "MANGA".equals(parts[0])) {
+                String storedId = parts[1];
+                String status = parts[2];
+                int prog = 0;
+                try { prog = Integer.parseInt(parts[3]); } catch (NumberFormatException nf) { prog = 0; }
+                int rating = -1;
+                if (parts.length >= 5) {
+                    try { rating = Integer.parseInt(parts[4]); } catch (NumberFormatException nf) { rating = -1; }
+                }
+
+                // If storedId doesn't match any manga ID, try to resolve by title
+                boolean idMatches = false;
+                for (Manga m : allManga) {
+                    if (m.getId().equals(storedId)) { idMatches = true; break; }
+                }
+
+                String resolvedId = storedId;
+                if (!idMatches) {
+                    String candidate = storedId.trim();
+                    // Try matching by title (exact, case-insensitive, or contains)
+                    for (Manga m : allManga) {
+                        String t = m.getTitle() == null ? "" : m.getTitle().trim();
+                        if (t.equalsIgnoreCase(candidate) || t.equalsIgnoreCase("The " + candidate) || t.toLowerCase().contains(candidate.toLowerCase())) {
+                            resolvedId = m.getId();
+                            idMatches = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Build entry using resolvedId
+                UserShowEntry entry = new UserShowEntry(status, prog, rating);
+                entry.setShowId(resolvedId);
+                List<UserShowEntry> list = mangaByStatus.get(status);
+                if (list != null) list.add(entry);
+
+                // If we resolved to a different id, rewrite the line to persist fix
+                if (!resolvedId.equals(storedId)) {
+                    String newLine = String.join("|", "MANGA", resolvedId, status, String.valueOf(prog), String.valueOf(rating));
+                    outLines.add(newLine);
+                    changed = true;
+                } else {
+                    outLines.add(line);
+                }
+            } else {
+                outLines.add(line);
+            }
+        }
+
+        if (changed) {
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(userFile))) {
+                for (String ol : outLines) {
+                    writer.write(ol);
+                    writer.newLine();
+                }
+            } catch (IOException e) {
+                // ignore write failures for now
+            }
+        }
+
         return mangaByStatus;
     }
     
@@ -755,61 +819,81 @@ public class AnimeTrackerApp extends JFrame {
     private JPanel createMangaStatusPanel(String status) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(Color.WHITE);
-        
-        DefaultListModel<String> listModel = new DefaultListModel<>();
-        JList<String> list = new JList<>(listModel);
-        list.setFont(new Font("Arial", Font.PLAIN, 14));
-        
+
+        JPanel gridPanel = new JPanel(new GridLayout(0, 3, 10, 10));
+        gridPanel.setBackground(Color.WHITE);
+        gridPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
         Map<String, List<UserShowEntry>> userManga = api.getUserManga(currentUser);
         List<Manga> allManga = api.getAllManga();
-        
+
         List<UserShowEntry> entries = userManga.get(status);
         if (entries != null) {
             for (UserShowEntry entry : entries) {
                 for (Manga manga : allManga) {
                     if (manga.getId().equals(entry.getShowId())) {
-                        String ratingText = (entry.getRating() >= 0) ? " • Rating: " + entry.getRating() : "";
-                        listModel.addElement(manga.getTitle() + " - " + entry.getProgress() + "/" + 
-                                           manga.getTotalChapters() + " chs" + ratingText + " (ID: " + manga.getId() + ")");
+                        JPanel card = createMangaCard(manga, entry, status);
+                        gridPanel.add(card);
                     }
                 }
             }
         }
-        
-        JScrollPane scrollPane = new JScrollPane(list);
+
+        JScrollPane scrollPane = new JScrollPane(gridPanel);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         panel.add(scrollPane, BorderLayout.CENTER);
-        
-        JPanel btnPanel = new JPanel();
-        
-        JButton editBtn = createStyledButton("Edit Selected");
-        editBtn.addActionListener(e -> {
-            String selected = list.getSelectedValue();
-            if (selected != null) {
-                String id = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
-                editManga(id, status);
-            }
-        });
-        
-        JButton removeBtn = createStyledButton("Remove Selected");
-        removeBtn.addActionListener(e -> {
-            String selected = list.getSelectedValue();
-            if (selected != null) {
-                String id = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
-                try {
-                    api.removeFromUserList(currentUser, id, "MANGA");
-                    listModel.removeElement(selected);
-                    JOptionPane.showMessageDialog(this, "Removed successfully!");
-                } catch (IOException ex) {
-                    JOptionPane.showMessageDialog(this, "Error removing manga!");
-                }
-            }
-        });
-        
-        btnPanel.add(editBtn);
-        btnPanel.add(removeBtn);
-        panel.add(btnPanel, BorderLayout.SOUTH);
-        
+
         return panel;
+    }
+
+    private JPanel createMangaCard(Manga manga, UserShowEntry entry, String status) {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setPreferredSize(new Dimension(200, 320));
+        card.setBorder(BorderFactory.createLineBorder(Theme.SECONDARY, 2));
+        card.setBackground(Color.WHITE);
+        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        JLabel imageLabel = new JLabel();
+        imageLabel.setPreferredSize(new Dimension(200, 280));
+        imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        ImageLoader.loadImageAsync(manga.getImageUrl(), 196, 280, imageLabel);
+
+        JPanel infoPanel = new JPanel(new BorderLayout());
+        infoPanel.setBackground(Theme.BACKGROUND);
+        infoPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+
+        JLabel titleLabel = new JLabel("<html><center>" + manga.getTitle() + "</center></html>");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+        String ratingText = (entry.getRating() >= 0) ? " • Rating: " + entry.getRating() : "";
+        JLabel progressLabel = new JLabel(entry.getProgress() + "/" + manga.getTotalChapters() + " chs" + ratingText);
+        progressLabel.setFont(new Font("Arial", Font.PLAIN, 11));
+        progressLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        progressLabel.setForeground(Theme.PRIMARY);
+
+        infoPanel.add(titleLabel, BorderLayout.NORTH);
+        infoPanel.add(progressLabel, BorderLayout.SOUTH);
+
+        card.add(imageLabel, BorderLayout.CENTER);
+        card.add(infoPanel, BorderLayout.SOUTH);
+
+        MouseAdapter clickListener = new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) {
+                editManga(manga.getId(), status);
+            }
+            public void mouseEntered(MouseEvent e) {
+                card.setBorder(BorderFactory.createLineBorder(Theme.PRIMARY, 3));
+            }
+            public void mouseExited(MouseEvent e) {
+                card.setBorder(BorderFactory.createLineBorder(Theme.SECONDARY, 2));
+            }
+        };
+
+        card.addMouseListener(clickListener);
+        imageLabel.addMouseListener(clickListener);
+
+        return card;
     }
     
     private void editManga(String mangaId, String currentStatus) {
@@ -1061,34 +1145,42 @@ public class AnimeTrackerApp extends JFrame {
     
     private void addMangaToDatabase() {
         JPanel inputPanel = new JPanel(new GridLayout(4, 2, 10, 10));
-        
-        JTextField idField = new JTextField();
+
         JTextField titleField = new JTextField();
         JTextField chaptersField = new JTextField();
         JTextField imageUrlField = new JTextField();
-        
-        inputPanel.add(new JLabel("Manga ID:"));
-        inputPanel.add(idField);
+
         inputPanel.add(new JLabel("Title:"));
         inputPanel.add(titleField);
         inputPanel.add(new JLabel("Total Chapters:"));
         inputPanel.add(chaptersField);
         inputPanel.add(new JLabel("Image URL:"));
         inputPanel.add(imageUrlField);
-        
+
         int result = JOptionPane.showConfirmDialog(this, inputPanel, "Add Manga",
             JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        
+
         if (result == JOptionPane.OK_OPTION) {
             try {
-                String id = idField.getText();
                 String title = titleField.getText();
                 int chapters = Integer.parseInt(chaptersField.getText());
                 String imageUrl = imageUrlField.getText();
-                
+
+                if (title == null || title.trim().isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Title cannot be empty.");
+                    return;
+                }
+                if (chapters < 0) {
+                    JOptionPane.showMessageDialog(this, "Total chapters must be 0 or greater.");
+                    return;
+                }
+
+                String id = api.generateMangaId();
                 Manga manga = new Manga(id, title, imageUrl, chapters);
                 api.addManga(manga);
-                JOptionPane.showMessageDialog(this, "Manga added to database!");
+                JOptionPane.showMessageDialog(this, "Manga added to database! ID: " + id);
+            } catch (NumberFormatException nfe) {
+                JOptionPane.showMessageDialog(this, "Total Chapters must be a number.");
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error adding manga: " + ex.getMessage());
             }

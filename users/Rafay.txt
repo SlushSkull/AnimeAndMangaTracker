@@ -9,3 +9,5 @@ ANIME|4e318221-4530-4dce-83e1-a16a2070fe33|Completed|12|7
 ANIME|55f935cf-65dd-4b41-ab53-ce795ca2ae16|Completed|24|9
 ANIME|f7d1a540-9841-4c2c-a9e8-16a714f8e61e|Completed|13|9
 ANIME|Be Hero X|Watching|0|-1
+MANGA|6d7feb88-7ec6-4b0e-a70d-29ff5afc61b5|Reading|126|8
+ANIME|émon|Dropped|0|-1
