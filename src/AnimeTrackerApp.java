@@ -341,26 +341,83 @@ class TrackerAPI {
         animeByStatus.put("Completed", new ArrayList<>());
         animeByStatus.put("Plan to Watch", new ArrayList<>());
         animeByStatus.put("Dropped", new ArrayList<>());
-        
-        try (BufferedReader reader = new BufferedReader(new FileReader(USERS_DIR + username + ".txt"))) {
+        // Read all lines first so we can attempt to correct malformed showIds (e.g., title instead of ID)
+        File userFile = new File(USERS_DIR + username + ".txt");
+        if (!userFile.exists()) return animeByStatus;
+
+        List<String> lines = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(userFile))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                String[] parts = line.split("\\|");
-                if (parts[0].equals("ANIME")) {
-                    int prog = Integer.parseInt(parts[3]);
-                    int rating = -1;
-                    if (parts.length >= 5) {
-                        try { rating = Integer.parseInt(parts[4]); } catch (NumberFormatException nf) { rating = -1; }
-                    }
-                    UserShowEntry entry = new UserShowEntry(parts[2], prog, rating);
-                    entry.setShowId(parts[1]);
-                    List<UserShowEntry> list = animeByStatus.get(parts[2]);
-                    if (list != null) list.add(entry);
-                }
+                if (!line.trim().isEmpty()) lines.add(line);
             }
         } catch (IOException e) {
-            // File doesn't exist yet
+            return animeByStatus;
         }
+
+        List<String> outLines = new ArrayList<>();
+        boolean changed = false;
+        List<Anime> allAnime = getAllAnime();
+
+        for (String line : lines) {
+            String[] parts = line.split("\\|");
+            if (parts.length >= 4 && "ANIME".equals(parts[0])) {
+                String storedId = parts[1];
+                String status = parts[2];
+                int prog = 0;
+                try { prog = Integer.parseInt(parts[3]); } catch (NumberFormatException nf) { prog = 0; }
+                int rating = -1;
+                if (parts.length >= 5) {
+                    try { rating = Integer.parseInt(parts[4]); } catch (NumberFormatException nf) { rating = -1; }
+                }
+
+                // If storedId doesn't match any anime ID, try to resolve by title
+                boolean idMatches = false;
+                for (Anime a : allAnime) {
+                    if (a.getId().equals(storedId)) { idMatches = true; break; }
+                }
+
+                String resolvedId = storedId;
+                if (!idMatches) {
+                    String candidate = storedId.trim();
+                    for (Anime a : allAnime) {
+                        String t = a.getTitle() == null ? "" : a.getTitle().trim();
+                        if (t.equalsIgnoreCase(candidate) || t.equalsIgnoreCase("The " + candidate) || t.toLowerCase().contains(candidate.toLowerCase())) {
+                            resolvedId = a.getId();
+                            idMatches = true;
+                            break;
+                        }
+                    }
+                }
+
+                UserShowEntry entry = new UserShowEntry(status, prog, rating);
+                entry.setShowId(resolvedId);
+                List<UserShowEntry> list = animeByStatus.get(status);
+                if (list != null) list.add(entry);
+
+                if (!resolvedId.equals(storedId)) {
+                    String newLine = String.join("|", "ANIME", resolvedId, status, String.valueOf(prog), String.valueOf(rating));
+                    outLines.add(newLine);
+                    changed = true;
+                } else {
+                    outLines.add(line);
+                }
+            } else {
+                outLines.add(line);
+            }
+        }
+
+        if (changed) {
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(userFile))) {
+                for (String ol : outLines) {
+                    writer.write(ol);
+                    writer.newLine();
+                }
+            } catch (IOException e) {
+                // ignore write failures for now
+            }
+        }
+
         return animeByStatus;
     }
     
@@ -975,6 +1032,7 @@ public class AnimeTrackerApp extends JFrame {
             return;
         }
         
+        // Show titles only in the dropdown; we'll map the selected title back to the ID
         String[] animeNames = allAnime.stream()
             .map(a -> a.getTitle())
             .toArray(String[]::new);
@@ -988,17 +1046,35 @@ public class AnimeTrackerApp extends JFrame {
                 "Add Anime", JOptionPane.QUESTION_MESSAGE, null, statuses, statuses[0]);
             
             if (status != null) {
-                String id = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
+                // Map the selected title back to the Anime object (case-insensitive)
+                Anime chosenAnime = null;
+                String sel = selected == null ? "" : selected.trim();
+                for (Anime a : allAnime) {
+                    if (a.getTitle() != null && a.getTitle().trim().equalsIgnoreCase(sel)) { chosenAnime = a; break; }
+                }
+                if (chosenAnime == null) {
+                    for (Anime a : allAnime) {
+                        if (a.getTitle() != null && a.getTitle().toLowerCase().contains(sel.toLowerCase())) { chosenAnime = a; break; }
+                    }
+                }
+                // fallback: if older format included ID, try to parse it
+                if (chosenAnime == null) {
+                    try {
+                        String idFromSel = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
+                        for (Anime a : allAnime) if (a.getId().equals(idFromSel)) { chosenAnime = a; break; }
+                    } catch (Exception ex) { /* ignore */ }
+                }
+
+                if (chosenAnime == null) {
+                    JOptionPane.showMessageDialog(this, "Could not find the selected anime in the database.");
+                    return;
+                }
+
+                String id = chosenAnime.getId();
                 try {
                     int initialProgress = 0;
                     if ("Completed".equals(status)) {
-                        // find anime to get total episodes
-                        for (Anime a : allAnime) {
-                            if (a.getId().equals(id)) {
-                                initialProgress = a.getTotalEpisodes();
-                                break;
-                            }
-                        }
+                        initialProgress = chosenAnime.getTotalEpisodes();
                     }
                     String ratingStr = JOptionPane.showInputDialog(this, "Enter initial rating (0-10) or leave blank:");
                     int rating = -1;
@@ -1026,6 +1102,7 @@ public class AnimeTrackerApp extends JFrame {
             return;
         }
         
+        // Show titles only in the dropdown; we'll map the selected title back to the ID
         String[] mangaNames = allManga.stream()
             .map(m -> m.getTitle())
             .toArray(String[]::new);
@@ -1039,13 +1116,32 @@ public class AnimeTrackerApp extends JFrame {
                 "Add Manga", JOptionPane.QUESTION_MESSAGE, null, statuses, statuses[0]);
             
             if (status != null) {
-                String id = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
+                // Map the selected title back to the Manga object (case-insensitive)
+                Manga chosenManga = null;
+                String sel = selected == null ? "" : selected.trim();
+                for (Manga m : allManga) {
+                    if (m.getTitle() != null && m.getTitle().trim().equalsIgnoreCase(sel)) { chosenManga = m; break; }
+                }
+                if (chosenManga == null) {
+                    for (Manga m : allManga) {
+                        if (m.getTitle() != null && m.getTitle().toLowerCase().contains(sel.toLowerCase())) { chosenManga = m; break; }
+                    }
+                }
+                // fallback: try parsing ID from older selection formats
+                if (chosenManga == null) {
+                    try {
+                        String idFromSel = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
+                        for (Manga m : allManga) if (m.getId().equals(idFromSel)) { chosenManga = m; break; }
+                    } catch (Exception ex) { /* ignore */ }
+                }
+
+                if (chosenManga == null) { JOptionPane.showMessageDialog(this, "Could not find the selected manga in the database."); return; }
+
+                String id = chosenManga.getId();
                 try {
                     int initialProgress = 0;
                     if ("Completed".equals(status)) {
-                        for (Manga m : allManga) {
-                            if (m.getId().equals(id)) { initialProgress = m.getTotalChapters(); break; }
-                        }
+                        initialProgress = chosenManga.getTotalChapters();
                     }
                     String ratingStr = JOptionPane.showInputDialog(this, "Enter initial rating (0-10) or leave blank:");
                     int rating = -1;
