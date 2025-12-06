@@ -1,13 +1,9 @@
 import javax.swing.*;
-import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.image.BufferedImage;
-import java.awt.event.*;
-import java.io.*;
-import java.net.URL;
+
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.*;
+
 // Refactor note: core models, API and utilities have been moved to separate files in `src/`.
 // - Show, Anime, Manga, UserShowEntry -> Show.java, Anime.java, Manga.java, UserShowEntry.java
 // - ImageLoader -> ImageLoader.java
@@ -16,8 +12,8 @@ import java.util.concurrent.*;
 
 // Main Application
 public class AnimeTrackerApp extends JFrame {
-    private TrackerAPI api;
-    private String currentUser;
+    TrackerAPI api;
+    String currentUser;
     private JPanel mainPanel;
     private CardLayout cardLayout;
     
@@ -56,13 +52,13 @@ public class AnimeTrackerApp extends JFrame {
         gbc.insets = new Insets(10, 0, 10, 0);
         gbc.fill = GridBagConstraints.HORIZONTAL;
         
-        JButton loginBtn = createStyledButton("Sign-in / Login");
+        JButton loginBtn = UIHelpers.createStyledButton("Sign-in / Login");
         loginBtn.addActionListener(e -> cardLayout.show(mainPanel, "LOGIN"));
         
-        JButton adminBtn = createStyledButton("Admin Menu");
+        JButton adminBtn = UIHelpers.createStyledButton("Admin Menu");
         adminBtn.addActionListener(e -> cardLayout.show(mainPanel, "ADMIN"));
         
-        JButton exitBtn = createStyledButton("Exit");
+        JButton exitBtn = UIHelpers.createStyledButton("Exit");
         exitBtn.addActionListener(e -> System.exit(0));
         
         gbc.gridy = 0; buttonPanel.add(loginBtn, gbc);
@@ -90,13 +86,13 @@ public class AnimeTrackerApp extends JFrame {
         gbc.insets = new Insets(10, 0, 10, 0);
         gbc.fill = GridBagConstraints.HORIZONTAL;
         
-        JButton createAccountBtn = createStyledButton("Create New Account");
+        JButton createAccountBtn = UIHelpers.createStyledButton("Create New Account");
         createAccountBtn.addActionListener(e -> createAccount());
         
-        JButton loginBtn = createStyledButton("Login");
+        JButton loginBtn = UIHelpers.createStyledButton("Login");
         loginBtn.addActionListener(e -> login());
         
-        JButton backBtn = createStyledButton("Back");
+        JButton backBtn = UIHelpers.createStyledButton("Back");
         backBtn.addActionListener(e -> cardLayout.show(mainPanel, "MAIN_MENU"));
         
         gbc.gridy = 0; centerPanel.add(createAccountBtn, gbc);
@@ -132,7 +128,7 @@ public class AnimeTrackerApp extends JFrame {
         }
     }
     
-    private void showUserDashboard() {
+    public void showUserDashboard() {
         JPanel dashboard = createUserDashboard();
         mainPanel.add(dashboard, "DASHBOARD");
         cardLayout.show(mainPanel, "DASHBOARD");
@@ -168,13 +164,13 @@ public class AnimeTrackerApp extends JFrame {
         JPanel bottomPanel = new JPanel(new FlowLayout());
         bottomPanel.setBackground(Theme.BACKGROUND);
         
-        JButton addAnimeBtn = createStyledButton("Add Anime");
-        addAnimeBtn.addActionListener(e -> addAnimeToList());
+        JButton addAnimeBtn = UIHelpers.createStyledButton("Add Anime");
+        addAnimeBtn.addActionListener(e -> AddToListActions.addAnimeToList(this));
         
-        JButton addMangaBtn = createStyledButton("Add Manga");
-        addMangaBtn.addActionListener(e -> addMangaToList());
+        JButton addMangaBtn = UIHelpers.createStyledButton("Add Manga");
+        addMangaBtn.addActionListener(e -> AddToListActions.addMangaToList(this));
         
-        JButton logoutBtn = createStyledButton("Logout");
+        JButton logoutBtn = UIHelpers.createStyledButton("Logout");
         logoutBtn.addActionListener(e -> {
             currentUser = null;
             cardLayout.show(mainPanel, "MAIN_MENU");
@@ -203,10 +199,10 @@ public class AnimeTrackerApp extends JFrame {
         if (entries != null) {
             for (UserShowEntry entry : entries) {
                 for (Anime anime : allAnime) {
-                    if (anime.getId().equals(entry.getShowId())) {
-                        JPanel card = createAnimeCard(anime, entry, status);
-                        gridPanel.add(card);
-                    }
+                        if (anime.getId().equals(entry.getShowId())) {
+                            JPanel card = UIHelpers.createAnimeCard(anime, entry, status, this);
+                            gridPanel.add(card);
+                        }
                 }
             }
         }
@@ -218,141 +214,9 @@ public class AnimeTrackerApp extends JFrame {
         return panel;
     }
     
-    private JPanel createAnimeCard(Anime anime, UserShowEntry entry, String status) {
-        JPanel card = new JPanel(new BorderLayout());
-        card.setPreferredSize(new Dimension(200, 320));
-        card.setBorder(BorderFactory.createLineBorder(Theme.SECONDARY, 2));
-        card.setBackground(Color.WHITE);
-        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        
-        // Image panel
-        JLabel imageLabel = new JLabel();
-        imageLabel.setPreferredSize(new Dimension(200, 280));
-        imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        ImageLoader.loadImageAsync(anime.getImageUrl(), 196, 280, imageLabel);
-        
-        // Info panel
-        JPanel infoPanel = new JPanel(new BorderLayout());
-        infoPanel.setBackground(Theme.BACKGROUND);
-        infoPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        
-        JLabel titleLabel = new JLabel("<html><center>" + anime.getTitle() + "</center></html>");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 12));
-        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        
-        String ratingText = (entry.getRating() >= 0) ? " • Rating: " + entry.getRating() : "";
-        JLabel progressLabel = new JLabel(entry.getProgress() + "/" + anime.getTotalEpisodes() + " eps" + ratingText);
-        progressLabel.setFont(new Font("Arial", Font.PLAIN, 11));
-        progressLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        progressLabel.setForeground(Theme.PRIMARY);
-        
-        infoPanel.add(titleLabel, BorderLayout.NORTH);
-        infoPanel.add(progressLabel, BorderLayout.SOUTH);
-        
-        card.add(imageLabel, BorderLayout.CENTER);
-        card.add(infoPanel, BorderLayout.SOUTH);
-        
-        // Click listener
-        MouseAdapter clickListener = new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) {
-                editAnime(anime.getId(), status);
-            }
-            public void mouseEntered(MouseEvent e) {
-                card.setBorder(BorderFactory.createLineBorder(Theme.PRIMARY, 3));
-            }
-            public void mouseExited(MouseEvent e) {
-                card.setBorder(BorderFactory.createLineBorder(Theme.SECONDARY, 2));
-            }
-        };
-        
-        card.addMouseListener(clickListener);
-        imageLabel.addMouseListener(clickListener);
-        
-        return card;
-    }
+    // Anime card rendering moved to `UIHelpers.createAnimeCard(...)`.
     
-    private void editAnime(String animeId, String currentStatus) {
-        Anime anime = null;
-        for (Anime a : api.getAllAnime()) {
-            if (a.getId().equals(animeId)) {
-                anime = a;
-                break;
-            }
-        }
-        
-        if (anime == null) return;
-        
-        UserShowEntry entry = api.getUserShowEntry(currentUser, animeId, "ANIME");
-        if (entry == null) return;
-        
-        JPanel editPanel = new JPanel(new GridLayout(4, 2, 10, 10));
-        
-        JLabel titleLabel = new JLabel("Editing: " + anime.getTitle());
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
-        
-        JSpinner episodeSpinner = new JSpinner(new SpinnerNumberModel(
-            entry.getProgress(), 0, anime.getTotalEpisodes(), 1));
-
-        JCheckBox noRating = new JCheckBox("No Rating");
-        JSpinner ratingSpinner = new JSpinner(new SpinnerNumberModel(Math.max(0, entry.getRating()), 0, 10, 1));
-        if (entry.getRating() < 0) noRating.setSelected(true);
-        ratingSpinner.setEnabled(!noRating.isSelected());
-        noRating.addActionListener(ev -> ratingSpinner.setEnabled(!noRating.isSelected()));
-        
-        String[] statuses = {"Watching", "Completed", "Plan to Watch", "Dropped"};
-        JComboBox<String> statusCombo = new JComboBox<>(statuses);
-        statusCombo.setSelectedItem(currentStatus);
-        
-        editPanel.add(titleLabel);
-        editPanel.add(new JLabel(""));
-        editPanel.add(new JLabel("Episodes Watched:"));
-        editPanel.add(episodeSpinner);
-        editPanel.add(new JLabel("Status:"));
-        editPanel.add(statusCombo);
-        editPanel.add(new JLabel("Rating (0-10):"));
-        JPanel ratingPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        ratingPanel.add(ratingSpinner);
-        ratingPanel.add(noRating);
-        editPanel.add(ratingPanel);
-        
-        int result = JOptionPane.showConfirmDialog(this, editPanel, "Edit Anime Progress",
-            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        
-        if (result == JOptionPane.OK_OPTION) {
-            try {
-                int newProgress = (Integer) episodeSpinner.getValue();
-                String newStatus = (String) statusCombo.getSelectedItem();
-                int newRating = noRating.isSelected() ? -1 : (Integer) ratingSpinner.getValue();
-
-                // Validation: cannot exceed total episodes
-                if (newProgress > anime.getTotalEpisodes()) {
-                    JOptionPane.showMessageDialog(this, "Watched episodes cannot exceed total episodes.");
-                    return;
-                }
-
-                // If user marks as Completed, auto-fill progress to max
-                if ("Completed".equals(newStatus)) {
-                    newProgress = anime.getTotalEpisodes();
-                }
-
-                // Auto-complete prompt if watched all episodes but not marked Completed
-                if (newProgress == anime.getTotalEpisodes() && !"Completed".equals(newStatus)) {
-                    int choice = JOptionPane.showConfirmDialog(this,
-                        "You've watched all episodes. Mark as Completed?",
-                        "Complete Anime", JOptionPane.YES_NO_OPTION);
-                    if (choice == JOptionPane.YES_OPTION) {
-                        newStatus = "Completed";
-                    }
-                }
-
-                api.updateUserEntry(currentUser, animeId, "ANIME", newStatus, newProgress, newRating);
-                JOptionPane.showMessageDialog(this, "Updated successfully!");
-                showUserDashboard(); // Refresh the dashboard
-            } catch (IOException ex) {
-                JOptionPane.showMessageDialog(this, "Error updating anime!");
-            }
-        }
-    }
+    // Edit dialog logic for anime moved to `EditDialogs.editAnime(...)`.
     
     private JPanel createMangaStatusPanel(String status) {
         JPanel panel = new JPanel(new BorderLayout());
@@ -369,10 +233,10 @@ public class AnimeTrackerApp extends JFrame {
         if (entries != null) {
             for (UserShowEntry entry : entries) {
                 for (Manga manga : allManga) {
-                    if (manga.getId().equals(entry.getShowId())) {
-                        JPanel card = createMangaCard(manga, entry, status);
-                        gridPanel.add(card);
-                    }
+                        if (manga.getId().equals(entry.getShowId())) {
+                            JPanel card = UIHelpers.createMangaCard(manga, entry, status, this);
+                            gridPanel.add(card);
+                        }
                 }
             }
         }
@@ -384,264 +248,13 @@ public class AnimeTrackerApp extends JFrame {
         return panel;
     }
 
-    private JPanel createMangaCard(Manga manga, UserShowEntry entry, String status) {
-        JPanel card = new JPanel(new BorderLayout());
-        card.setPreferredSize(new Dimension(200, 320));
-        card.setBorder(BorderFactory.createLineBorder(Theme.SECONDARY, 2));
-        card.setBackground(Color.WHITE);
-        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        JLabel imageLabel = new JLabel();
-        imageLabel.setPreferredSize(new Dimension(200, 280));
-        imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        ImageLoader.loadImageAsync(manga.getImageUrl(), 196, 280, imageLabel);
-
-        JPanel infoPanel = new JPanel(new BorderLayout());
-        infoPanel.setBackground(Theme.BACKGROUND);
-        infoPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-
-        JLabel titleLabel = new JLabel("<html><center>" + manga.getTitle() + "</center></html>");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 12));
-        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
-
-        String ratingText = (entry.getRating() >= 0) ? " • Rating: " + entry.getRating() : "";
-        JLabel progressLabel = new JLabel(entry.getProgress() + "/" + manga.getTotalChapters() + " chs" + ratingText);
-        progressLabel.setFont(new Font("Arial", Font.PLAIN, 11));
-        progressLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        progressLabel.setForeground(Theme.PRIMARY);
-
-        infoPanel.add(titleLabel, BorderLayout.NORTH);
-        infoPanel.add(progressLabel, BorderLayout.SOUTH);
-
-        card.add(imageLabel, BorderLayout.CENTER);
-        card.add(infoPanel, BorderLayout.SOUTH);
-
-        MouseAdapter clickListener = new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) {
-                editManga(manga.getId(), status);
-            }
-            public void mouseEntered(MouseEvent e) {
-                card.setBorder(BorderFactory.createLineBorder(Theme.PRIMARY, 3));
-            }
-            public void mouseExited(MouseEvent e) {
-                card.setBorder(BorderFactory.createLineBorder(Theme.SECONDARY, 2));
-            }
-        };
-
-        card.addMouseListener(clickListener);
-        imageLabel.addMouseListener(clickListener);
-
-        return card;
-    }
+    // Manga card rendering moved to `UIHelpers.createMangaCard(...)`.
     
-    private void editManga(String mangaId, String currentStatus) {
-        Manga manga = null;
-        for (Manga m : api.getAllManga()) {
-            if (m.getId().equals(mangaId)) {
-                manga = m;
-                break;
-            }
-        }
-        
-        if (manga == null) return;
-        
-        UserShowEntry entry = api.getUserShowEntry(currentUser, mangaId, "MANGA");
-        if (entry == null) return;
-        
-        JPanel editPanel = new JPanel(new GridLayout(4, 2, 10, 10));
-        
-        JLabel titleLabel = new JLabel("Editing: " + manga.getTitle());
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
-        
-        JSpinner chapterSpinner = new JSpinner(new SpinnerNumberModel(
-            entry.getProgress(), 0, manga.getTotalChapters(), 1));
-
-        JCheckBox noRating = new JCheckBox("No Rating");
-        JSpinner ratingSpinner = new JSpinner(new SpinnerNumberModel(Math.max(0, entry.getRating()), 0, 10, 1));
-        if (entry.getRating() < 0) noRating.setSelected(true);
-        ratingSpinner.setEnabled(!noRating.isSelected());
-        noRating.addActionListener(ev -> ratingSpinner.setEnabled(!noRating.isSelected()));
-        
-        String[] statuses = {"Reading", "Completed", "Plan to Read", "Dropped"};
-        JComboBox<String> statusCombo = new JComboBox<>(statuses);
-        statusCombo.setSelectedItem(currentStatus);
-        
-        editPanel.add(titleLabel);
-        editPanel.add(new JLabel(""));
-        editPanel.add(new JLabel("Chapters Read:"));
-        editPanel.add(chapterSpinner);
-        editPanel.add(new JLabel("Status:"));
-        editPanel.add(statusCombo);
-        editPanel.add(new JLabel("Rating (0-10):"));
-        JPanel ratingPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        ratingPanel.add(ratingSpinner);
-        ratingPanel.add(noRating);
-        editPanel.add(ratingPanel);
-        
-        int result = JOptionPane.showConfirmDialog(this, editPanel, "Edit Manga Progress",
-            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        
-        if (result == JOptionPane.OK_OPTION) {
-            try {
-                int newProgress = (Integer) chapterSpinner.getValue();
-                String newStatus = (String) statusCombo.getSelectedItem();
-                int newRating = noRating.isSelected() ? -1 : (Integer) ratingSpinner.getValue();
-                
-                // Auto-complete if read all chapters
-                if (newProgress == manga.getTotalChapters() && !newStatus.equals("Completed")) {
-                    int choice = JOptionPane.showConfirmDialog(this, 
-                        "You've read all chapters. Mark as Completed?", 
-                        "Complete Manga", JOptionPane.YES_NO_OPTION);
-                    if (choice == JOptionPane.YES_OPTION) {
-                        newStatus = "Completed";
-                    }
-                }
-                
-                api.updateUserEntry(currentUser, mangaId, "MANGA", newStatus, newProgress, newRating);
-                JOptionPane.showMessageDialog(this, "Updated successfully!");
-                showUserDashboard(); // Refresh the dashboard
-            } catch (IOException ex) {
-                JOptionPane.showMessageDialog(this, "Error updating manga!");
-            }
-        }
-    }
+    // Edit dialog logic for manga moved to `EditDialogs.editManga(...)`.
     
-    private void addAnimeToList() {
-        List<Anime> allAnime = api.getAllAnime();
-        if (allAnime.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "No anime in database! Ask admin to add anime first.");
-            return;
-        }
-        
-        // Show titles only in the dropdown; we'll map the selected title back to the ID
-        String[] animeNames = allAnime.stream()
-            .map(a -> a.getTitle())
-            .toArray(String[]::new);
-        
-        String selected = (String) JOptionPane.showInputDialog(this, "Select Anime:",
-            "Add Anime", JOptionPane.QUESTION_MESSAGE, null, animeNames, animeNames[0]);
-        
-        if (selected != null) {
-            String[] statuses = {"Watching", "Completed", "Plan to Watch", "Dropped"};
-            String status = (String) JOptionPane.showInputDialog(this, "Select Status:",
-                "Add Anime", JOptionPane.QUESTION_MESSAGE, null, statuses, statuses[0]);
-            
-            if (status != null) {
-                // Map the selected title back to the Anime object (case-insensitive)
-                Anime chosenAnime = null;
-                String sel = selected == null ? "" : selected.trim();
-                for (Anime a : allAnime) {
-                    if (a.getTitle() != null && a.getTitle().trim().equalsIgnoreCase(sel)) { chosenAnime = a; break; }
-                }
-                if (chosenAnime == null) {
-                    for (Anime a : allAnime) {
-                        if (a.getTitle() != null && a.getTitle().toLowerCase().contains(sel.toLowerCase())) { chosenAnime = a; break; }
-                    }
-                }
-                // fallback: if older format included ID, try to parse it
-                if (chosenAnime == null) {
-                    try {
-                        String idFromSel = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
-                        for (Anime a : allAnime) if (a.getId().equals(idFromSel)) { chosenAnime = a; break; }
-                    } catch (Exception ex) { /* ignore */ }
-                }
-
-                if (chosenAnime == null) {
-                    JOptionPane.showMessageDialog(this, "Could not find the selected anime in the database.");
-                    return;
-                }
-
-                String id = chosenAnime.getId();
-                try {
-                    int initialProgress = 0;
-                    if ("Completed".equals(status)) {
-                        initialProgress = chosenAnime.getTotalEpisodes();
-                    }
-                    String ratingStr = JOptionPane.showInputDialog(this, "Enter initial rating (0-10) or leave blank:");
-                    int rating = -1;
-                    if (ratingStr != null && !ratingStr.trim().isEmpty()) {
-                        try { rating = Integer.parseInt(ratingStr); } catch (NumberFormatException nfe) { rating = -1; }
-                    }
-                    boolean added = api.addToUserList(currentUser, id, status, "ANIME", initialProgress, rating);
-                    if (added) {
-                        JOptionPane.showMessageDialog(this, "Anime added successfully!");
-                        showUserDashboard();
-                    } else {
-                        JOptionPane.showMessageDialog(this, "This anime is already in your list.");
-                    }
-                } catch (IOException ex) {
-                    JOptionPane.showMessageDialog(this, "Error adding anime!");
-                }
-            }
-        }
-    }
+    // addAnimeToList moved to `AddToListActions.addAnimeToList(...)`.
     
-    private void addMangaToList() {
-        List<Manga> allManga = api.getAllManga();
-        if (allManga.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "No manga in database! Ask admin to add manga first.");
-            return;
-        }
-        
-        // Show titles only in the dropdown; we'll map the selected title back to the ID
-        String[] mangaNames = allManga.stream()
-            .map(m -> m.getTitle())
-            .toArray(String[]::new);
-        
-        String selected = (String) JOptionPane.showInputDialog(this, "Select Manga:",
-            "Add Manga", JOptionPane.QUESTION_MESSAGE, null, mangaNames, mangaNames[0]);
-        
-        if (selected != null) {
-            String[] statuses = {"Reading", "Completed", "Plan to Read", "Dropped"};
-            String status = (String) JOptionPane.showInputDialog(this, "Select Status:",
-                "Add Manga", JOptionPane.QUESTION_MESSAGE, null, statuses, statuses[0]);
-            
-            if (status != null) {
-                // Map the selected title back to the Manga object (case-insensitive)
-                Manga chosenManga = null;
-                String sel = selected == null ? "" : selected.trim();
-                for (Manga m : allManga) {
-                    if (m.getTitle() != null && m.getTitle().trim().equalsIgnoreCase(sel)) { chosenManga = m; break; }
-                }
-                if (chosenManga == null) {
-                    for (Manga m : allManga) {
-                        if (m.getTitle() != null && m.getTitle().toLowerCase().contains(sel.toLowerCase())) { chosenManga = m; break; }
-                    }
-                }
-                // fallback: try parsing ID from older selection formats
-                if (chosenManga == null) {
-                    try {
-                        String idFromSel = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
-                        for (Manga m : allManga) if (m.getId().equals(idFromSel)) { chosenManga = m; break; }
-                    } catch (Exception ex) { /* ignore */ }
-                }
-
-                if (chosenManga == null) { JOptionPane.showMessageDialog(this, "Could not find the selected manga in the database."); return; }
-
-                String id = chosenManga.getId();
-                try {
-                    int initialProgress = 0;
-                    if ("Completed".equals(status)) {
-                        initialProgress = chosenManga.getTotalChapters();
-                    }
-                    String ratingStr = JOptionPane.showInputDialog(this, "Enter initial rating (0-10) or leave blank:");
-                    int rating = -1;
-                    if (ratingStr != null && !ratingStr.trim().isEmpty()) {
-                        try { rating = Integer.parseInt(ratingStr); } catch (NumberFormatException nfe) { rating = -1; }
-                    }
-                    boolean added = api.addToUserList(currentUser, id, status, "MANGA", initialProgress, rating);
-                    if (added) {
-                        JOptionPane.showMessageDialog(this, "Manga added successfully!");
-                        showUserDashboard();
-                    } else {
-                        JOptionPane.showMessageDialog(this, "This manga is already in your list.");
-                    }
-                } catch (IOException ex) {
-                    JOptionPane.showMessageDialog(this, "Error adding manga!");
-                }
-            }
-        }
-    }
+    // addMangaToList moved to `AddToListActions.addMangaToList(...)`.
     
     private JPanel createAdminPanel() {
         JPanel panel = new JPanel(new BorderLayout());
@@ -660,13 +273,13 @@ public class AnimeTrackerApp extends JFrame {
         gbc.insets = new Insets(10, 0, 10, 0);
         gbc.fill = GridBagConstraints.HORIZONTAL;
         
-        JButton addAnimeBtn = createStyledButton("Add Anime to Database");
-        addAnimeBtn.addActionListener(e -> addAnimeToDatabase());
+        JButton addAnimeBtn = UIHelpers.createStyledButton("Add Anime to Database");
+        addAnimeBtn.addActionListener(e -> AdminActions.addAnimeToDatabase(this));
         
-        JButton addMangaBtn = createStyledButton("Add Manga to Database");
-        addMangaBtn.addActionListener(e -> addMangaToDatabase());
+        JButton addMangaBtn = UIHelpers.createStyledButton("Add Manga to Database");
+        addMangaBtn.addActionListener(e -> AdminActions.addMangaToDatabase(this));
         
-        JButton backBtn = createStyledButton("Back");
+        JButton backBtn = UIHelpers.createStyledButton("Back");
         backBtn.addActionListener(e -> cardLayout.show(mainPanel, "MAIN_MENU"));
         
         gbc.gridy = 0; centerPanel.add(addAnimeBtn, gbc);
@@ -677,201 +290,11 @@ public class AnimeTrackerApp extends JFrame {
         return panel;
     }
     
-    private void addAnimeToDatabase() {
-        JPanel inputPanel = new JPanel(new GridLayout(4, 2, 10, 10));
-        JTextField titleField = new JTextField();
-        JTextField episodesField = new JTextField();
-        JTextField imageUrlField = new JTextField();
-
-        inputPanel.add(new JLabel("Title:"));
-        inputPanel.add(titleField);
-        inputPanel.add(new JLabel("Total Episodes:"));
-        inputPanel.add(episodesField);
-        inputPanel.add(new JLabel("Image URL:"));
-        inputPanel.add(imageUrlField);
-        
-        int result = JOptionPane.showConfirmDialog(this, inputPanel, "Add Anime",
-            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        
-        if (result == JOptionPane.OK_OPTION) {
-            try {
-                String title = titleField.getText();
-                int episodes = Integer.parseInt(episodesField.getText());
-                String imageUrl = imageUrlField.getText();
-
-                if (title == null || title.trim().isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Title cannot be empty.");
-                    return;
-                }
-                if (episodes < 0) {
-                    JOptionPane.showMessageDialog(this, "Total episodes must be 0 or greater.");
-                    return;
-                }
-
-                String id = api.generateAnimeId();
-                Anime anime = new Anime(id, title, imageUrl, episodes);
-                api.addAnime(anime);
-                JOptionPane.showMessageDialog(this, "Anime added to database! ID: " + id);
-            } catch (NumberFormatException nfe) {
-                JOptionPane.showMessageDialog(this, "Total Episodes must be a number.");
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error adding anime: " + ex.getMessage());
-            }
-        }
-    }
+    // addAnimeToDatabase moved to `AdminActions.addAnimeToDatabase(...)`.
     
-    private void addMangaToDatabase() {
-        JPanel inputPanel = new JPanel(new GridLayout(4, 2, 10, 10));
-
-        JTextField titleField = new JTextField();
-        JTextField chaptersField = new JTextField();
-        JTextField imageUrlField = new JTextField();
-
-        inputPanel.add(new JLabel("Title:"));
-        inputPanel.add(titleField);
-        inputPanel.add(new JLabel("Total Chapters:"));
-        inputPanel.add(chaptersField);
-        inputPanel.add(new JLabel("Image URL:"));
-        inputPanel.add(imageUrlField);
-
-        int result = JOptionPane.showConfirmDialog(this, inputPanel, "Add Manga",
-            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-
-        if (result == JOptionPane.OK_OPTION) {
-            try {
-                String title = titleField.getText();
-                int chapters = Integer.parseInt(chaptersField.getText());
-                String imageUrl = imageUrlField.getText();
-
-                if (title == null || title.trim().isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Title cannot be empty.");
-                    return;
-                }
-                if (chapters < 0) {
-                    JOptionPane.showMessageDialog(this, "Total chapters must be 0 or greater.");
-                    return;
-                }
-
-                String id = api.generateMangaId();
-                Manga manga = new Manga(id, title, imageUrl, chapters);
-                api.addManga(manga);
-                JOptionPane.showMessageDialog(this, "Manga added to database! ID: " + id);
-            } catch (NumberFormatException nfe) {
-                JOptionPane.showMessageDialog(this, "Total Chapters must be a number.");
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error adding manga: " + ex.getMessage());
-            }
-        }
-    }
+    // addMangaToDatabase moved to `AdminActions.addMangaToDatabase(...)`.
     
-public static JButton createStyledButton(String text) {
-        JButton button = new JButton(text);
-        button.setPreferredSize(new Dimension(250, 50));
-        button.setFont(new Font("Arial", Font.BOLD, 18));
-        button.setFocusPainted(false);
-        button.setBackground(new Color(70, 130, 180));
-        button.setForeground(Color.WHITE);
-        button.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        // subtle hover effect
-        button.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                button.setBackground(new Color(100, 149, 237));
-            }
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                button.setBackground(new Color(70, 130, 180));
-            }
-        });
-        return button;
-    }
-
-    /**
-     * Creates a JLabel containing an image loaded from the given URL. If loading fails,
-     * a placeholder text label is returned. The image is scaled to width x height.
-     */
-    public static JLabel createImageLabel(String url, int width, int height) {
-        JLabel label = new JLabel();
-        label.setPreferredSize(new Dimension(width, height));
-        label.setHorizontalAlignment(SwingConstants.CENTER);
-        if (url == null || url.trim().isEmpty()) {
-            label.setText("No Image");
-            return label;
-        }
-        // Load synchronously here for simplicity; calling code can offload with SwingWorker if needed
-        try {
-            ImageIcon icon = new ImageIcon(new URL(url));
-            Image img = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
-            label.setIcon(new ImageIcon(img));
-            label.setText("");
-        } catch (Exception e) {
-            label.setText("No Image");
-        }
-        return label;
-    }
-
-    /**
-     * Create a compact entry panel for either Anime or Manga (both extend Show in your code).
-     * This method expects an object that has getTitle(), getImageUrl(), and progress methods.
-     * To avoid a hard compile dependency, overloads are provided below for Anime and Manga.
-     */
-    public static JPanel createEntryPanelForAnime(Anime anime, int userProgress, String status) {
-        JPanel panel = new JPanel(new BorderLayout(8, 8));
-        panel.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
-        panel.setBackground(Color.WHITE);
-
-        JLabel img = createImageLabel(anime.getImageUrl(), 120, 160);
-        panel.add(img, BorderLayout.WEST);
-
-        JPanel info = new JPanel();
-        info.setBackground(Color.WHITE);
-        info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
-        JLabel title = new JLabel("Title: " + anime.getTitle());
-        title.setFont(new Font("Arial", Font.BOLD, 14));
-        JLabel rating = new JLabel("Episodes: " + userProgress + " / " + anime.getTotalEpisodes());
-        JLabel stat = new JLabel("Status: " + status);
-
-        info.add(title);
-        info.add(Box.createVerticalStrut(6));
-        info.add(rating);
-        info.add(Box.createVerticalStrut(6));
-        info.add(stat);
-
-        panel.add(info, BorderLayout.CENTER);
-        return panel;
-    }
-
-    public static JPanel createEntryPanelForManga(Manga manga, int userProgress, String status) {
-        JPanel panel = new JPanel(new BorderLayout(8, 8));
-        panel.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
-        panel.setBackground(Color.WHITE);
-
-        JLabel img = createImageLabel(manga.getImageUrl(), 120, 160);
-        panel.add(img, BorderLayout.WEST);
-
-        JPanel info = new JPanel();
-        info.setBackground(Color.WHITE);
-        info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
-        JLabel title = new JLabel("Title: " + manga.getTitle());
-        title.setFont(new Font("Arial", Font.BOLD, 14));
-        JLabel progress = new JLabel("Chapters: " + userProgress + " / " + manga.getTotalChapters());
-        JLabel stat = new JLabel("Status: " + status);
-
-        info.add(title);
-        info.add(Box.createVerticalStrut(6));
-        info.add(progress);
-        info.add(Box.createVerticalStrut(6));
-        info.add(stat);
-
-        panel.add(info, BorderLayout.CENTER);
-        return panel;
-    }
-
-    /**
-     * Small utility used by the main app to show a brief notification.
-     */
-    public static void showInfo(Component parent, String message) {
-        JOptionPane.showMessageDialog(parent, message);
-    }
+    // Local UI helper methods moved to `UIHelpers`.
     
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
