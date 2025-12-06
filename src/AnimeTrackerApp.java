@@ -892,7 +892,7 @@ public class AnimeTrackerApp extends JFrame {
         }
         
         String[] animeNames = allAnime.stream()
-            .map(a -> a.getTitle() + " (ID: " + a.getId() + ")")
+            .map(a -> a.getTitle())
             .toArray(String[]::new);
         
         String selected = (String) JOptionPane.showInputDialog(this, "Select Anime:",
@@ -943,7 +943,7 @@ public class AnimeTrackerApp extends JFrame {
         }
         
         String[] mangaNames = allManga.stream()
-            .map(m -> m.getTitle() + " (ID: " + m.getId() + ")")
+            .map(m -> m.getTitle())
             .toArray(String[]::new);
         
         String selected = (String) JOptionPane.showInputDialog(this, "Select Manga:",
