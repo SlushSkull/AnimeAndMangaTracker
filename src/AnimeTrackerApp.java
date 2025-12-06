@@ -144,16 +144,25 @@ class UserShowEntry {
     private String status;
     private int progress;
     private String showId;
+    private int rating; // -1 = not rated, otherwise 0-10
     
     public UserShowEntry(String status, int progress) {
         this.status = status;
         this.progress = progress;
+        this.rating = -1;
+    }
+    public UserShowEntry(String status, int progress, int rating) {
+        this.status = status;
+        this.progress = progress;
+        this.rating = rating;
     }
     
     public String getStatus() { return status; }
     public int getProgress() { return progress; }
     public String getShowId() { return showId; }
     public void setShowId(String showId) { this.showId = showId; }
+    public int getRating() { return rating; }
+    public void setRating(int rating) { this.rating = rating; }
 }
 
 // Theme class
@@ -247,6 +256,10 @@ class TrackerAPI {
      * Returns true if added, false if a duplicate was detected.
      */
     public boolean addToUserList(String username, String showId, String status, String type, int progress) throws IOException {
+        return addToUserList(username, showId, status, type, progress, -1);
+    }
+
+    public boolean addToUserList(String username, String showId, String status, String type, int progress, int rating) throws IOException {
         File userFile = new File(USERS_DIR + username + ".txt");
         // ensure file exists
         if (!userFile.exists()) userFile.createNewFile();
@@ -260,15 +273,19 @@ class TrackerAPI {
                 }
             }
         }
-        // append
+        // append (include rating)
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(userFile, true))) {
-            writer.write(type + "|" + showId + "|" + status + "|" + progress);
+            writer.write(type + "|" + showId + "|" + status + "|" + progress + "|" + rating);
             writer.newLine();
         }
         return true;
     }
     
     public void updateUserEntry(String username, String showId, String type, String newStatus, int newProgress) throws IOException {
+        updateUserEntry(username, showId, type, newStatus, newProgress, -1);
+    }
+
+    public void updateUserEntry(String username, String showId, String type, String newStatus, int newProgress, int newRating) throws IOException {
         File userFile = new File(USERS_DIR + username + ".txt");
         List<String> lines = new ArrayList<>();
         
@@ -277,7 +294,7 @@ class TrackerAPI {
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("\\|");
                 if (parts[0].equals(type) && parts[1].equals(showId)) {
-                    lines.add(type + "|" + showId + "|" + newStatus + "|" + newProgress);
+                    lines.add(type + "|" + showId + "|" + newStatus + "|" + newProgress + "|" + newRating);
                 } else {
                     lines.add(line);
                 }
@@ -298,7 +315,12 @@ class TrackerAPI {
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("\\|");
                 if (parts[0].equals(type) && parts[1].equals(showId)) {
-                    UserShowEntry e = new UserShowEntry(parts[2], Integer.parseInt(parts[3]));
+                    int prog = Integer.parseInt(parts[3]);
+                    int rating = -1;
+                    if (parts.length >= 5) {
+                        try { rating = Integer.parseInt(parts[4]); } catch (NumberFormatException nf) { rating = -1; }
+                    }
+                    UserShowEntry e = new UserShowEntry(parts[2], prog, rating);
                     e.setShowId(parts[1]);
                     return e;
                 }
@@ -321,7 +343,12 @@ class TrackerAPI {
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("\\|");
                 if (parts[0].equals("ANIME")) {
-                    UserShowEntry entry = new UserShowEntry(parts[2], Integer.parseInt(parts[3]));
+                    int prog = Integer.parseInt(parts[3]);
+                    int rating = -1;
+                    if (parts.length >= 5) {
+                        try { rating = Integer.parseInt(parts[4]); } catch (NumberFormatException nf) { rating = -1; }
+                    }
+                    UserShowEntry entry = new UserShowEntry(parts[2], prog, rating);
                     entry.setShowId(parts[1]);
                     List<UserShowEntry> list = animeByStatus.get(parts[2]);
                     if (list != null) list.add(entry);
@@ -345,7 +372,12 @@ class TrackerAPI {
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("\\|");
                 if (parts[0].equals("MANGA")) {
-                    UserShowEntry entry = new UserShowEntry(parts[2], Integer.parseInt(parts[3]));
+                    int prog = Integer.parseInt(parts[3]);
+                    int rating = -1;
+                    if (parts.length >= 5) {
+                        try { rating = Integer.parseInt(parts[4]); } catch (NumberFormatException nf) { rating = -1; }
+                    }
+                    UserShowEntry entry = new UserShowEntry(parts[2], prog, rating);
                     entry.setShowId(parts[1]);
                     List<UserShowEntry> list = mangaByStatus.get(parts[2]);
                     if (list != null) list.add(entry);
@@ -606,7 +638,8 @@ public class AnimeTrackerApp extends JFrame {
         titleLabel.setFont(new Font("Arial", Font.BOLD, 12));
         titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
         
-        JLabel progressLabel = new JLabel(entry.getProgress() + "/" + anime.getTotalEpisodes() + " eps");
+        String ratingText = (entry.getRating() >= 0) ? " • Rating: " + entry.getRating() : "";
+        JLabel progressLabel = new JLabel(entry.getProgress() + "/" + anime.getTotalEpisodes() + " eps" + ratingText);
         progressLabel.setFont(new Font("Arial", Font.PLAIN, 11));
         progressLabel.setHorizontalAlignment(SwingConstants.CENTER);
         progressLabel.setForeground(Theme.PRIMARY);
@@ -650,13 +683,19 @@ public class AnimeTrackerApp extends JFrame {
         UserShowEntry entry = api.getUserShowEntry(currentUser, animeId, "ANIME");
         if (entry == null) return;
         
-        JPanel editPanel = new JPanel(new GridLayout(3, 2, 10, 10));
+        JPanel editPanel = new JPanel(new GridLayout(4, 2, 10, 10));
         
         JLabel titleLabel = new JLabel("Editing: " + anime.getTitle());
         titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
         
         JSpinner episodeSpinner = new JSpinner(new SpinnerNumberModel(
             entry.getProgress(), 0, anime.getTotalEpisodes(), 1));
+
+        JCheckBox noRating = new JCheckBox("No Rating");
+        JSpinner ratingSpinner = new JSpinner(new SpinnerNumberModel(Math.max(0, entry.getRating()), 0, 10, 1));
+        if (entry.getRating() < 0) noRating.setSelected(true);
+        ratingSpinner.setEnabled(!noRating.isSelected());
+        noRating.addActionListener(ev -> ratingSpinner.setEnabled(!noRating.isSelected()));
         
         String[] statuses = {"Watching", "Completed", "Plan to Watch", "Dropped"};
         JComboBox<String> statusCombo = new JComboBox<>(statuses);
@@ -668,6 +707,11 @@ public class AnimeTrackerApp extends JFrame {
         editPanel.add(episodeSpinner);
         editPanel.add(new JLabel("Status:"));
         editPanel.add(statusCombo);
+        editPanel.add(new JLabel("Rating (0-10):"));
+        JPanel ratingPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        ratingPanel.add(ratingSpinner);
+        ratingPanel.add(noRating);
+        editPanel.add(ratingPanel);
         
         int result = JOptionPane.showConfirmDialog(this, editPanel, "Edit Anime Progress",
             JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
@@ -676,6 +720,7 @@ public class AnimeTrackerApp extends JFrame {
             try {
                 int newProgress = (Integer) episodeSpinner.getValue();
                 String newStatus = (String) statusCombo.getSelectedItem();
+                int newRating = noRating.isSelected() ? -1 : (Integer) ratingSpinner.getValue();
 
                 // Validation: cannot exceed total episodes
                 if (newProgress > anime.getTotalEpisodes()) {
@@ -698,7 +743,7 @@ public class AnimeTrackerApp extends JFrame {
                     }
                 }
 
-                api.updateUserEntry(currentUser, animeId, "ANIME", newStatus, newProgress);
+                api.updateUserEntry(currentUser, animeId, "ANIME", newStatus, newProgress, newRating);
                 JOptionPane.showMessageDialog(this, "Updated successfully!");
                 showUserDashboard(); // Refresh the dashboard
             } catch (IOException ex) {
@@ -723,8 +768,9 @@ public class AnimeTrackerApp extends JFrame {
             for (UserShowEntry entry : entries) {
                 for (Manga manga : allManga) {
                     if (manga.getId().equals(entry.getShowId())) {
+                        String ratingText = (entry.getRating() >= 0) ? " • Rating: " + entry.getRating() : "";
                         listModel.addElement(manga.getTitle() + " - " + entry.getProgress() + "/" + 
-                                           manga.getTotalChapters() + " chs (ID: " + manga.getId() + ")");
+                                           manga.getTotalChapters() + " chs" + ratingText + " (ID: " + manga.getId() + ")");
                     }
                 }
             }
@@ -780,13 +826,19 @@ public class AnimeTrackerApp extends JFrame {
         UserShowEntry entry = api.getUserShowEntry(currentUser, mangaId, "MANGA");
         if (entry == null) return;
         
-        JPanel editPanel = new JPanel(new GridLayout(3, 2, 10, 10));
+        JPanel editPanel = new JPanel(new GridLayout(4, 2, 10, 10));
         
         JLabel titleLabel = new JLabel("Editing: " + manga.getTitle());
         titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
         
         JSpinner chapterSpinner = new JSpinner(new SpinnerNumberModel(
             entry.getProgress(), 0, manga.getTotalChapters(), 1));
+
+        JCheckBox noRating = new JCheckBox("No Rating");
+        JSpinner ratingSpinner = new JSpinner(new SpinnerNumberModel(Math.max(0, entry.getRating()), 0, 10, 1));
+        if (entry.getRating() < 0) noRating.setSelected(true);
+        ratingSpinner.setEnabled(!noRating.isSelected());
+        noRating.addActionListener(ev -> ratingSpinner.setEnabled(!noRating.isSelected()));
         
         String[] statuses = {"Reading", "Completed", "Plan to Read", "Dropped"};
         JComboBox<String> statusCombo = new JComboBox<>(statuses);
@@ -798,6 +850,11 @@ public class AnimeTrackerApp extends JFrame {
         editPanel.add(chapterSpinner);
         editPanel.add(new JLabel("Status:"));
         editPanel.add(statusCombo);
+        editPanel.add(new JLabel("Rating (0-10):"));
+        JPanel ratingPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        ratingPanel.add(ratingSpinner);
+        ratingPanel.add(noRating);
+        editPanel.add(ratingPanel);
         
         int result = JOptionPane.showConfirmDialog(this, editPanel, "Edit Manga Progress",
             JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
@@ -806,6 +863,7 @@ public class AnimeTrackerApp extends JFrame {
             try {
                 int newProgress = (Integer) chapterSpinner.getValue();
                 String newStatus = (String) statusCombo.getSelectedItem();
+                int newRating = noRating.isSelected() ? -1 : (Integer) ratingSpinner.getValue();
                 
                 // Auto-complete if read all chapters
                 if (newProgress == manga.getTotalChapters() && !newStatus.equals("Completed")) {
@@ -817,7 +875,7 @@ public class AnimeTrackerApp extends JFrame {
                     }
                 }
                 
-                api.updateUserEntry(currentUser, mangaId, "MANGA", newStatus, newProgress);
+                api.updateUserEntry(currentUser, mangaId, "MANGA", newStatus, newProgress, newRating);
                 JOptionPane.showMessageDialog(this, "Updated successfully!");
                 showUserDashboard(); // Refresh the dashboard
             } catch (IOException ex) {
@@ -858,7 +916,12 @@ public class AnimeTrackerApp extends JFrame {
                             }
                         }
                     }
-                    boolean added = api.addToUserList(currentUser, id, status, "ANIME", initialProgress);
+                    String ratingStr = JOptionPane.showInputDialog(this, "Enter initial rating (0-10) or leave blank:");
+                    int rating = -1;
+                    if (ratingStr != null && !ratingStr.trim().isEmpty()) {
+                        try { rating = Integer.parseInt(ratingStr); } catch (NumberFormatException nfe) { rating = -1; }
+                    }
+                    boolean added = api.addToUserList(currentUser, id, status, "ANIME", initialProgress, rating);
                     if (added) {
                         JOptionPane.showMessageDialog(this, "Anime added successfully!");
                         showUserDashboard();
@@ -894,7 +957,18 @@ public class AnimeTrackerApp extends JFrame {
             if (status != null) {
                 String id = selected.substring(selected.indexOf("ID: ") + 4, selected.length() - 1);
                 try {
-                    boolean added = api.addToUserList(currentUser, id, status, "MANGA", 0);
+                    int initialProgress = 0;
+                    if ("Completed".equals(status)) {
+                        for (Manga m : allManga) {
+                            if (m.getId().equals(id)) { initialProgress = m.getTotalChapters(); break; }
+                        }
+                    }
+                    String ratingStr = JOptionPane.showInputDialog(this, "Enter initial rating (0-10) or leave blank:");
+                    int rating = -1;
+                    if (ratingStr != null && !ratingStr.trim().isEmpty()) {
+                        try { rating = Integer.parseInt(ratingStr); } catch (NumberFormatException nfe) { rating = -1; }
+                    }
+                    boolean added = api.addToUserList(currentUser, id, status, "MANGA", initialProgress, rating);
                     if (added) {
                         JOptionPane.showMessageDialog(this, "Manga added successfully!");
                         showUserDashboard();

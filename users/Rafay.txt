@@ -1,2 +1,3 @@
-ANIME||Completed|13
-ANIME|ce744790-f560-4575-81d8-15fe953f9048|Completed|24
+ANIME||Completed|13|8
+ANIME|ce744790-f560-4575-81d8-15fe953f9048|Completed|24|8
+ANIME|edc554eb-fc8a-4ac4-b3bf-fb79444a933e|Watching|8|7
