@@ -80,11 +80,7 @@ public class UIHelpers {
 
     // Card creation moved to dedicated Card/AnimeCard/MangaCard classes.
 
-    // Helper to format rating consistently
-    private static String formatRating(int rating) {
-        if (rating < 0) return "—";
-        return String.valueOf(rating);
-    }
+    // Rating formatting is now handled by the Card classes; helper removed.
 
     public static JPanel createEntryPanelForManga(Manga manga, int userProgress, String status) {
         JPanel panel = new JPanel(new BorderLayout(8, 8));
