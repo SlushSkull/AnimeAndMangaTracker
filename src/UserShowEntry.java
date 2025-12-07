@@ -21,4 +21,5 @@ public class UserShowEntry {
     public void setShowId(String showId) { this.showId = showId; }
     public int getRating() { return rating; }
     public void setRating(int rating) { this.rating = rating; }
+    public void setProgress(int progress) { this.progress = progress; }
 }
