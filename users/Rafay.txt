@@ -4,13 +4,16 @@ ANIME|a9d15381-bd7f-477b-b885-9623a0fa6fa1|Completed|24|9
 ANIME|0baa477f-7f2d-4246-ae3b-9c13e6a3e7ff|Completed|12|8
 ANIME|c8496c48-2641-4b14-9913-7a4cf7f8d6b8|Watching|2|-1
 ANIME|63dec3cc-0129-4759-99eb-19ef46e6cbc1|Watching|9|8
-ANIME|94e34614-1418-4e4f-bcb0-c429a263b45c|Watching|0|8
+ANIME|94e34614-1418-4e4f-bcb0-c429a263b45c|Watching|4|8
 ANIME|4e318221-4530-4dce-83e1-a16a2070fe33|Completed|12|7
 ANIME|55f935cf-65dd-4b41-ab53-ce795ca2ae16|Completed|24|9
 ANIME|f7d1a540-9841-4c2c-a9e8-16a714f8e61e|Completed|13|9
-MANGA|6d7feb88-7ec6-4b0e-a70d-29ff5afc61b5|Reading|126|8
+MANGA|6d7feb88-7ec6-4b0e-a70d-29ff5afc61b5|Dropped|126|8
 ANIME|22c6c921-9724-43b6-851c-45829106078a|Dropped|0|-1
 ANIME|8893951b-08b3-415d-a740-d1d79e950ce4|Plan to Watch|0|-1
 ANIME|86dd434e-8919-466d-a175-c73eebd1f48f|Completed|12|7
 ANIME|dad52650-b0bb-48a3-8e58-ca08ed9a4992|Completed|14|7
 ANIME|06538858-4175-4af3-9a42-4487528aa54c|Completed|28|10
+MANGA|e7d192ce-cd19-44ca-9a10-759f9e1638a5|Reading|150|8
+MANGA|d4b092d4-1ade-4052-b0c7-6ffb1704dd29|Completed|101|7
+MANGA|9ec89f08-b493-44ee-927d-69e6aa23b2ef|Plan to Read|0|-1

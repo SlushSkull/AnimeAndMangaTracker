@@ -4,12 +4,6 @@ import java.awt.*;
 import java.util.*;
 import java.util.List;
 
-// Refactor note: core models, API and utilities have been moved to separate files in `src/`.
-// - Show, Anime, Manga, UserShowEntry -> Show.java, Anime.java, Manga.java, UserShowEntry.java
-// - ImageLoader -> ImageLoader.java
-// - TrackerAPI -> TrackerAPI.java
-// - Theme -> Theme.java
-
 // Main Application
 public class AnimeTrackerApp extends JFrame {
     TrackerAPI api;
@@ -214,10 +208,6 @@ public class AnimeTrackerApp extends JFrame {
         return panel;
     }
     
-    // Anime card rendering moved to `UIHelpers.createAnimeCard(...)`.
-    
-    // Edit dialog logic for anime moved to `EditDialogs.editAnime(...)`.
-    
     private JPanel createMangaStatusPanel(String status) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(Color.WHITE);
@@ -247,14 +237,6 @@ public class AnimeTrackerApp extends JFrame {
 
         return panel;
     }
-
-    // Manga card rendering moved to `UIHelpers.createMangaCard(...)`.
-    
-    // Edit dialog logic for manga moved to `EditDialogs.editManga(...)`.
-    
-    // addAnimeToList moved to `AddToListActions.addAnimeToList(...)`.
-    
-    // addMangaToList moved to `AddToListActions.addMangaToList(...)`.
     
     private JPanel createAdminPanel() {
         JPanel panel = new JPanel(new BorderLayout());
@@ -289,12 +271,6 @@ public class AnimeTrackerApp extends JFrame {
         panel.add(centerPanel, BorderLayout.CENTER);
         return panel;
     }
-    
-    // addAnimeToDatabase moved to `AdminActions.addAnimeToDatabase(...)`.
-    
-    // addMangaToDatabase moved to `AdminActions.addMangaToDatabase(...)`.
-    
-    // Local UI helper methods moved to `UIHelpers`.
     
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
