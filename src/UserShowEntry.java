@@ -22,4 +22,5 @@ public class UserShowEntry {
     public int getRating() { return rating; }
     public void setRating(int rating) { this.rating = rating; }
     public void setProgress(int progress) { this.progress = progress; }
+    public void setStatus(String status) { this.status = status; }
 }

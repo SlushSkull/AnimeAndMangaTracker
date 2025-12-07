@@ -179,10 +179,25 @@ public class UIHelpers {
         inc.addActionListener(ae -> {
             int newVal = Math.min(anime.getTotalEpisodes(), entry.getProgress() + 1);
             entry.setProgress(newVal);
+
+            // If we've reached the total, ask the user whether to mark Completed (same flow as EditDialogs)
+            if (newVal >= anime.getTotalEpisodes() && !"Completed".equals(entry.getStatus())) {
+                int choice = JOptionPane.showConfirmDialog(app,
+                    "You've watched all episodes. Mark as Completed?",
+                    "Complete Anime", JOptionPane.YES_NO_OPTION);
+                if (choice == JOptionPane.YES_OPTION) {
+                    entry.setStatus("Completed");
+                }
+            }
+
             progressLabel.setText(newVal + " / " + anime.getTotalEpisodes());
             progressBar.setValue(newVal);
-            // Persist change: TrackerAPI.updateUserEntry(username, showId, type, newStatus, newProgress, newRating)
-            try { app.api.updateUserEntry(app.currentUser, anime.getId(), "ANIME", entry.getStatus(), newVal, entry.getRating()); } catch (Exception ex) { }
+
+            // Persist change and refresh UI
+            try {
+                app.api.updateUserEntry(app.currentUser, anime.getId(), "ANIME", entry.getStatus(), newVal, entry.getRating());
+                app.showUserDashboard();
+            } catch (Exception ex) { }
         });
 
         return card;
@@ -293,9 +308,22 @@ public class UIHelpers {
         inc.addActionListener(ae -> {
             int newVal = Math.min(manga.getTotalChapters(), entry.getProgress() + 1);
             entry.setProgress(newVal);
+
+            if (newVal >= manga.getTotalChapters() && !"Completed".equals(entry.getStatus())) {
+                int choice = JOptionPane.showConfirmDialog(app,
+                    "You've read all chapters. Mark as Completed?",
+                    "Complete Manga", JOptionPane.YES_NO_OPTION);
+                if (choice == JOptionPane.YES_OPTION) {
+                    entry.setStatus("Completed");
+                }
+            }
+
             progressLabel.setText(newVal + " / " + manga.getTotalChapters());
             progressBar.setValue(newVal);
-            try { app.api.updateUserEntry(app.currentUser, manga.getId(), "MANGA", entry.getStatus(), newVal, entry.getRating()); } catch (Exception ex) { }
+            try {
+                app.api.updateUserEntry(app.currentUser, manga.getId(), "MANGA", entry.getStatus(), newVal, entry.getRating());
+                app.showUserDashboard();
+            } catch (Exception ex) { }
         });
 
         return card;
