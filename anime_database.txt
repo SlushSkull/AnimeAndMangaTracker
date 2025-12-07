@@ -14,3 +14,8 @@ dad52650-b0bb-48a3-8e58-ca08ed9a4992|BLUE LOCK Season 2|https://s4.anilist.co/fi
 86dd434e-8919-466d-a175-c73eebd1f48f|Alya Sometimes Hides Her Feelings in Russian|https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx162804-TBeptcAfvqTd.jpg|12
 22c6c921-9724-43b6-851c-45829106078a|Pokémon |https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b527-FSbEjTEOSQQ5.png|276
 06538858-4175-4af3-9a42-4487528aa54c|Frieren: Beyond Journey’s End |https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-qQTzQnEJJ3oB.jpg|28
+26ec8291-db95-43c4-a595-3a8b963a735d|Dragon Ball GT|https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx225-pzkDUVy7tKxH.png|64
+4844dee2-1d23-4250-aa08-a1b6e53141d4|Dragon Ball Z|https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx813-ZhnFNOeCU5dQ.png|291
+e1e3ea6a-b0ec-461d-bcbf-88c9f4a19736|Dragon Ball |https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx223-scE5uJfXqqj8.png|153
+38a8d693-8aab-42f6-8032-9b2a0a4a013d|Dragon Ball Super |https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21175-EH06qlfF8TnB.jpg|131
+540d5e23-a000-44ec-be1b-9ccb0b26c0bc|Dragon Ball DAIMA |https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx170083-GTwRrhTApcLR.png|20

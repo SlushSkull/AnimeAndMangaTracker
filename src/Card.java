@@ -96,8 +96,9 @@ public abstract class Card extends JPanel {
         progressBar = new JProgressBar(0, Math.max(1, total));
         int prog = Math.max(0, Math.min(progress, total));
         progressBar.setValue(prog);
-        progressBar.setPreferredSize(new Dimension(200, 10));
-        progressBar.setMaximumSize(new Dimension(200, 10));
+        // Allow the progress bar to expand to the available horizontal space
+        progressBar.setPreferredSize(new Dimension(0, 10));
+        progressBar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 10));
         progressBar.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         rightCol.add(titleLabel);
