@@ -36,7 +36,7 @@ The app will attempt to auto-fix older user files where the `SHOW_ID` contains a
 
 **Build and run (Windows PowerShell)**
 ```powershell
-cd 'c:\Users\Rafay\Desktop\Study\Universities\COMSATS\Object Oriented Programming\Java\AnimeAndMangaTracker\src'
+cd 'AnimeAndMangaTracker\src'
 javac *.java
 java AnimeTrackerApp
 ```
