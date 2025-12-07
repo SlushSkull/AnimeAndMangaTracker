@@ -69,118 +69,23 @@ public class UIHelpers {
     }
 
     public static JPanel createAnimeCard(Anime anime, UserShowEntry entry, String status, AnimeTrackerApp app) {
-        // Card layout similar to the JavaFX MediaCard example
-        int cardHeight = 120;
-        int posterWidth = 105;
+        // Build common card parts and then wire anime-specific behavior
+        CardParts parts = createCard(anime.getId(), anime.getTitle(), anime.getImageUrl(), entry.getProgress(), anime.getTotalEpisodes(), entry.getRating(), "TV", app);
 
-        RoundedPanel card = new RoundedPanel(Theme.BACKGROUND, 10);
-        card.setLayout(new BorderLayout());
-        card.setPreferredSize(new Dimension(420, cardHeight + 10));
-        card.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
-        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        // Poster
-        JLabel poster = new JLabel();
-        poster.setPreferredSize(new Dimension(posterWidth, cardHeight));
-        poster.setHorizontalAlignment(SwingConstants.CENTER);
-        ImageLoader.loadImageAsync(anime.getImageUrl(), posterWidth - 4, cardHeight, poster);
-        card.add(poster, BorderLayout.WEST);
-
-        // Right column
-        JPanel rightCol = new JPanel();
-        rightCol.setOpaque(false);
-        rightCol.setLayout(new BoxLayout(rightCol, BoxLayout.Y_AXIS));
-        rightCol.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
-
-        // Title
-        JLabel titleLabel = new JLabel(anime.getTitle());
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
-        titleLabel.setForeground(Theme.SECONDARY);
-        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        // Type / meta row
-        JLabel typeLabel = new JLabel("TV");
-        typeLabel.setFont(new Font("Arial", Font.PLAIN, 12));
-        typeLabel.setForeground(Theme.SECONDARY);
-        typeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        // Spacer to push meta row down
-        Component verticalSpacer = Box.createVerticalGlue();
-
-        // Meta row (rating left, progress+button right)
-        JPanel metaRow = new JPanel();
-        metaRow.setOpaque(false);
-        metaRow.setLayout(new BoxLayout(metaRow, BoxLayout.X_AXIS));
-        metaRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        // Rating box
-        JPanel ratingBox = new JPanel();
-        ratingBox.setOpaque(false);
-        ratingBox.setLayout(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        JLabel star = new JLabel("\u2605");
-        star.setForeground(new Color(255, 176, 0));
-        star.setFont(new Font("Arial", Font.PLAIN, 14));
-        JLabel ratingLabel = new JLabel((entry.getRating() >= 0) ? formatRating(entry.getRating()) : "—");
-        ratingLabel.setForeground(Theme.SECONDARY);
-        ratingLabel.setFont(new Font("Arial", Font.PLAIN, 12));
-        ratingBox.add(star);
-        ratingBox.add(ratingLabel);
-
-        // Spacer inside meta row
-        Component hSpacer = Box.createHorizontalGlue();
-
-        // Progress + +1 button
-        JPanel progressBox = new JPanel();
-        progressBox.setOpaque(false);
-        progressBox.setLayout(new FlowLayout(FlowLayout.RIGHT, 6, 0));
-        JLabel progressLabel = new JLabel(entry.getProgress() + " / " + anime.getTotalEpisodes());
-        progressLabel.setForeground(Theme.SECONDARY);
-        progressLabel.setFont(new Font("Arial", Font.PLAIN, 12));
-        JButton inc = new JButton("+1");
-        inc.setFocusable(false);
-        inc.setFont(new Font("Arial", Font.BOLD, 12));
-        inc.setBackground(Theme.PRIMARY);
-        inc.setForeground(Color.WHITE);
-        inc.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
-        progressBox.add(progressLabel);
-        progressBox.add(inc);
-
-        metaRow.add(ratingBox);
-        metaRow.add(hSpacer);
-        metaRow.add(progressBox);
-
-        // Progress bar
-        JProgressBar progressBar = new JProgressBar(0, Math.max(1, anime.getTotalEpisodes()));
-        int prog = Math.max(0, Math.min(entry.getProgress(), anime.getTotalEpisodes()));
-        progressBar.setValue(prog);
-        progressBar.setPreferredSize(new Dimension(200, 10));
-        progressBar.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        // Assemble right column
-        rightCol.add(titleLabel);
-        rightCol.add(Box.createVerticalStrut(4));
-        rightCol.add(typeLabel);
-        rightCol.add(verticalSpacer);
-        rightCol.add(metaRow);
-        rightCol.add(Box.createVerticalStrut(6));
-        rightCol.add(progressBar);
-
-        card.add(rightCol, BorderLayout.CENTER);
-
-        // Mouse behavior and actions
+        // Click opens edit dialog
         MouseAdapter clickListener = new MouseAdapter() {
             public void mouseClicked(MouseEvent e) { EditDialogs.editAnime(app, anime.getId(), status); }
-            public void mouseEntered(MouseEvent e) { card.setBorder(BorderFactory.createLineBorder(Theme.PRIMARY, 2)); }
-            public void mouseExited(MouseEvent e) { card.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6)); }
+            public void mouseEntered(MouseEvent e) { parts.card.setBorder(BorderFactory.createLineBorder(Theme.PRIMARY, 2)); }
+            public void mouseExited(MouseEvent e) { parts.card.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6)); }
         };
-        card.addMouseListener(clickListener);
-        poster.addMouseListener(clickListener);
+        parts.card.addMouseListener(clickListener);
+        parts.poster.addMouseListener(clickListener);
 
-        inc.addActionListener(ae -> {
+        // +1 button behavior
+        parts.inc.addActionListener(ae -> {
             int newVal = Math.min(anime.getTotalEpisodes(), entry.getProgress() + 1);
             entry.setProgress(newVal);
 
-            // If we've reached the total, ask the user whether to mark Completed (same flow as EditDialogs)
             if (newVal >= anime.getTotalEpisodes() && !"Completed".equals(entry.getStatus())) {
                 int choice = JOptionPane.showConfirmDialog(app,
                     "You've watched all episodes. Mark as Completed?",
@@ -190,122 +95,31 @@ public class UIHelpers {
                 }
             }
 
-            progressLabel.setText(newVal + " / " + anime.getTotalEpisodes());
-            progressBar.setValue(newVal);
+            parts.progressLabel.setText(newVal + " / " + anime.getTotalEpisodes());
+            parts.progressBar.setValue(newVal);
 
-            // Persist change and refresh UI
             try {
                 app.api.updateUserEntry(app.currentUser, anime.getId(), "ANIME", entry.getStatus(), newVal, entry.getRating());
                 app.showUserDashboard();
             } catch (Exception ex) { }
         });
 
-        return card;
+        return parts.card;
     }
 
     public static JPanel createMangaCard(Manga manga, UserShowEntry entry, String status, AnimeTrackerApp app) {
-        // Reuse the same visual structure as anime card, but adapt labels
-        int cardHeight = 120;
-        int posterWidth = 105;
-
-        RoundedPanel card = new RoundedPanel(Theme.BACKGROUND, 10);
-        card.setLayout(new BorderLayout());
-        card.setPreferredSize(new Dimension(420, cardHeight + 10));
-        card.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
-        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        // Poster
-        JLabel poster = new JLabel();
-        poster.setPreferredSize(new Dimension(posterWidth, cardHeight));
-        poster.setHorizontalAlignment(SwingConstants.CENTER);
-        ImageLoader.loadImageAsync(manga.getImageUrl(), posterWidth - 4, cardHeight, poster);
-        card.add(poster, BorderLayout.WEST);
-
-        // Right column
-        JPanel rightCol = new JPanel();
-        rightCol.setOpaque(false);
-        rightCol.setLayout(new BoxLayout(rightCol, BoxLayout.Y_AXIS));
-        rightCol.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
-
-        // Title
-        JLabel titleLabel = new JLabel(manga.getTitle());
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
-        titleLabel.setForeground(Theme.SECONDARY);
-        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        // Type label (Manga)
-        JLabel typeLabel = new JLabel("Manga");
-        typeLabel.setFont(new Font("Arial", Font.PLAIN, 12));
-        typeLabel.setForeground(Theme.SECONDARY);
-        typeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        Component verticalSpacer = Box.createVerticalGlue();
-
-        // Meta row
-        JPanel metaRow = new JPanel();
-        metaRow.setOpaque(false);
-        metaRow.setLayout(new BoxLayout(metaRow, BoxLayout.X_AXIS));
-        metaRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JPanel ratingBox = new JPanel();
-        ratingBox.setOpaque(false);
-        ratingBox.setLayout(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        JLabel star = new JLabel("\u2605");
-        star.setForeground(new Color(255, 176, 0));
-        star.setFont(new Font("Arial", Font.PLAIN, 14));
-        JLabel ratingLabel = new JLabel((entry.getRating() >= 0) ? formatRating(entry.getRating()) : "—");
-        ratingLabel.setForeground(Theme.SECONDARY);
-        ratingLabel.setFont(new Font("Arial", Font.PLAIN, 12));
-        ratingBox.add(star);
-        ratingBox.add(ratingLabel);
-
-        Component hSpacer = Box.createHorizontalGlue();
-
-        JPanel progressBox = new JPanel();
-        progressBox.setOpaque(false);
-        progressBox.setLayout(new FlowLayout(FlowLayout.RIGHT, 6, 0));
-        JLabel progressLabel = new JLabel(entry.getProgress() + " / " + manga.getTotalChapters());
-        progressLabel.setForeground(Theme.SECONDARY);
-        progressLabel.setFont(new Font("Arial", Font.PLAIN, 12));
-        JButton inc = new JButton("+1");
-        inc.setFocusable(false);
-        inc.setFont(new Font("Arial", Font.BOLD, 12));
-        inc.setBackground(Theme.PRIMARY);
-        inc.setForeground(Color.WHITE);
-        inc.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
-        progressBox.add(progressLabel);
-        progressBox.add(inc);
-
-        metaRow.add(ratingBox);
-        metaRow.add(hSpacer);
-        metaRow.add(progressBox);
-
-        JProgressBar progressBar = new JProgressBar(0, Math.max(1, manga.getTotalChapters()));
-        int prog = Math.max(0, Math.min(entry.getProgress(), manga.getTotalChapters()));
-        progressBar.setValue(prog);
-        progressBar.setPreferredSize(new Dimension(200, 10));
-        progressBar.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        // Assemble
-        rightCol.add(titleLabel);
-        rightCol.add(Box.createVerticalStrut(4));
-        rightCol.add(typeLabel);
-        rightCol.add(verticalSpacer);
-        rightCol.add(metaRow);
-        rightCol.add(Box.createVerticalStrut(6));
-        rightCol.add(progressBar);
-
-        card.add(rightCol, BorderLayout.CENTER);
+        // Build common card parts and then wire manga-specific behavior
+        CardParts parts = createCard(manga.getId(), manga.getTitle(), manga.getImageUrl(), entry.getProgress(), manga.getTotalChapters(), entry.getRating(), "Manga", app);
 
         MouseAdapter clickListener = new MouseAdapter() {
             public void mouseClicked(MouseEvent e) { EditDialogs.editManga(app, manga.getId(), status); }
-            public void mouseEntered(MouseEvent e) { card.setBorder(BorderFactory.createLineBorder(Theme.PRIMARY, 2)); }
-            public void mouseExited(MouseEvent e) { card.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6)); }
+            public void mouseEntered(MouseEvent e) { parts.card.setBorder(BorderFactory.createLineBorder(Theme.PRIMARY, 2)); }
+            public void mouseExited(MouseEvent e) { parts.card.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6)); }
         };
-        card.addMouseListener(clickListener);
-        poster.addMouseListener(clickListener);
+        parts.card.addMouseListener(clickListener);
+        parts.poster.addMouseListener(clickListener);
 
-        inc.addActionListener(ae -> {
+        parts.inc.addActionListener(ae -> {
             int newVal = Math.min(manga.getTotalChapters(), entry.getProgress() + 1);
             entry.setProgress(newVal);
 
@@ -318,15 +132,138 @@ public class UIHelpers {
                 }
             }
 
-            progressLabel.setText(newVal + " / " + manga.getTotalChapters());
-            progressBar.setValue(newVal);
+            parts.progressLabel.setText(newVal + " / " + manga.getTotalChapters());
+            parts.progressBar.setValue(newVal);
             try {
                 app.api.updateUserEntry(app.currentUser, manga.getId(), "MANGA", entry.getStatus(), newVal, entry.getRating());
                 app.showUserDashboard();
             } catch (Exception ex) { }
         });
 
-        return card;
+        return parts.card;
+    }
+
+    // Helper container for components returned by createCard
+    private static class CardParts {
+        JPanel card;
+        JLabel poster;
+        JLabel titleLabel;
+        JLabel typeLabel;
+        JLabel progressLabel;
+        JProgressBar progressBar;
+        JButton inc;
+    }
+
+    /**
+     * Builds the shared card UI and returns its parts so caller can wire behavior.
+     */
+    private static CardParts createCard(String id, String title, String imageUrl, int progress, int total, int rating, String typeText, AnimeTrackerApp app) {
+        int cardHeight = 120;
+        int posterWidth = 105;
+
+        RoundedPanel card = new RoundedPanel(Theme.BACKGROUND, 10);
+        card.setLayout(new BorderLayout());
+        card.setPreferredSize(new Dimension(420, cardHeight + 10));
+        // prevent vertical expansion beyond preferred height
+        card.setMaximumSize(card.getPreferredSize());
+        card.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
+        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        // ensure BoxLayout parents align cards to the top
+        card.setAlignmentY(Component.TOP_ALIGNMENT);
+
+        JLabel poster = new JLabel();
+        poster.setPreferredSize(new Dimension(posterWidth, cardHeight));
+        poster.setMaximumSize(new Dimension(posterWidth, cardHeight));
+        poster.setHorizontalAlignment(SwingConstants.CENTER);
+        ImageLoader.loadImageAsync(imageUrl, posterWidth - 4, cardHeight, poster);
+        card.add(poster, BorderLayout.WEST);
+        poster.setAlignmentY(Component.TOP_ALIGNMENT);
+
+        JPanel rightCol = new JPanel();
+        rightCol.setOpaque(false);
+        rightCol.setLayout(new BoxLayout(rightCol, BoxLayout.Y_AXIS));
+        rightCol.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
+        // prevent right column from forcing card to expand vertically
+        rightCol.setMaximumSize(new Dimension(Integer.MAX_VALUE, cardHeight));
+        rightCol.setAlignmentY(Component.TOP_ALIGNMENT);
+
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        titleLabel.setForeground(Theme.SECONDARY);
+        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel typeLabel = new JLabel(typeText);
+        typeLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        typeLabel.setForeground(Theme.SECONDARY);
+        typeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        // use a fixed spacer so BoxLayout does not expand glue to fill extra space
+        Component verticalSpacer = Box.createVerticalStrut(8);
+
+        JPanel metaRow = new JPanel();
+        metaRow.setOpaque(false);
+        metaRow.setLayout(new BoxLayout(metaRow, BoxLayout.X_AXIS));
+        metaRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JPanel ratingBox = new JPanel();
+        ratingBox.setOpaque(false);
+        ratingBox.setLayout(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        JLabel star = new JLabel("\u2605");
+        star.setForeground(new Color(255, 176, 0));
+        star.setFont(new Font("Arial", Font.PLAIN, 14));
+        JLabel ratingLabel = new JLabel((rating >= 0) ? formatRating(rating) : "—");
+        ratingLabel.setForeground(Theme.SECONDARY);
+        ratingLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        ratingBox.add(star);
+        ratingBox.add(ratingLabel);
+
+        Component hSpacer = Box.createHorizontalGlue();
+
+        JPanel progressBox = new JPanel();
+        progressBox.setOpaque(false);
+        progressBox.setLayout(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        JLabel progressLabel = new JLabel(progress + " / " + total);
+        progressLabel.setForeground(Theme.SECONDARY);
+        progressLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        JButton inc = new JButton("+1");
+        inc.setFocusable(false);
+        inc.setFont(new Font("Arial", Font.BOLD, 12));
+        inc.setBackground(Theme.PRIMARY);
+        inc.setForeground(Color.WHITE);
+        inc.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+        progressBox.add(progressLabel);
+        progressBox.add(inc);
+
+        metaRow.add(ratingBox);
+        metaRow.add(hSpacer);
+        metaRow.add(progressBox);
+
+        JProgressBar progressBar = new JProgressBar(0, Math.max(1, total));
+        int prog = Math.max(0, Math.min(progress, total));
+        progressBar.setValue(prog);
+        progressBar.setPreferredSize(new Dimension(200, 10));
+        progressBar.setMaximumSize(new Dimension(200, 10));
+        progressBar.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        rightCol.add(titleLabel);
+        rightCol.add(Box.createVerticalStrut(4));
+        rightCol.add(typeLabel);
+        rightCol.add(verticalSpacer);
+        rightCol.add(metaRow);
+        rightCol.add(Box.createVerticalStrut(6));
+        rightCol.add(progressBar);
+
+        card.add(rightCol, BorderLayout.CENTER);
+
+        CardParts parts = new CardParts();
+        parts.card = card;
+        parts.poster = poster;
+        parts.titleLabel = titleLabel;
+        parts.typeLabel = typeLabel;
+        parts.progressLabel = progressLabel;
+        parts.progressBar = progressBar;
+        parts.inc = inc;
+        return parts;
     }
 
     // Small helper rounded panel to get the card background with rounded corners
@@ -339,6 +276,13 @@ public class UIHelpers {
             this.bgColor = bgColor;
             this.radius = radius;
             setOpaque(false);
+        }
+
+        @Override
+        public Dimension getMaximumSize() {
+            // refuse to grow beyond preferred size to keep BoxLayout behavior predictable
+            Dimension pref = getPreferredSize();
+            return pref == null ? super.getMaximumSize() : pref;
         }
 
         @Override

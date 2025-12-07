@@ -1,8 +1,15 @@
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.*;
 
 import java.util.*;
 import java.util.List;
+
+// Refactor note: core models, API and utilities have been moved to separate files in `src/`.
+// - Show, Anime, Manga, UserShowEntry -> Show.java, Anime.java, Manga.java, UserShowEntry.java
+// - ImageLoader -> ImageLoader.java
+// - TrackerAPI -> TrackerAPI.java
+// - Theme -> Theme.java
 
 // Main Application
 public class AnimeTrackerApp extends JFrame {
@@ -182,37 +189,67 @@ public class AnimeTrackerApp extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(Color.WHITE);
         
-        JPanel gridPanel = new JPanel(new GridLayout(0, 3, 10, 10));
+        // Build a vertical list of rows where each row is a 1x2 grid.
+        // This enforces exactly two columns while preserving each card's preferred height.
+        JPanel gridPanel = new JPanel();
+        gridPanel.setLayout(new BoxLayout(gridPanel, BoxLayout.Y_AXIS));
         gridPanel.setBackground(Color.WHITE);
         gridPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        
+
         Map<String, List<UserShowEntry>> userAnime = api.getUserAnime(currentUser);
         List<Anime> allAnime = api.getAllAnime();
-        
+
         List<UserShowEntry> entries = userAnime.get(status);
+        List<JPanel> cardList = new ArrayList<>();
         if (entries != null) {
             for (UserShowEntry entry : entries) {
                 for (Anime anime : allAnime) {
-                        if (anime.getId().equals(entry.getShowId())) {
-                            JPanel card = UIHelpers.createAnimeCard(anime, entry, status, this);
-                            gridPanel.add(card);
-                        }
+                    if (anime.getId().equals(entry.getShowId())) {
+                        JPanel card = UIHelpers.createAnimeCard(anime, entry, status, this);
+                        Dimension pref = card.getPreferredSize();
+                        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, pref.height));
+                        card.setAlignmentY(Component.TOP_ALIGNMENT);
+                        cardList.add(card);
+                    }
                 }
             }
         }
-        
+
+        // Group cards into rows of two
+        for (int i = 0; i < cardList.size(); i += 2) {
+            JPanel row = new JPanel(new GridLayout(1, 2, 10, 10));
+            row.setBackground(Color.WHITE);
+            JPanel left = cardList.get(i);
+            JPanel right = (i + 1 < cardList.size()) ? cardList.get(i + 1) : new JPanel();
+            right.setBackground(Color.WHITE);
+            row.add(left);
+            row.add(right);
+            Dimension pref = left.getPreferredSize();
+            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, pref.height));
+            gridPanel.add(row);
+            gridPanel.add(Box.createVerticalStrut(10));
+        }
+
         JScrollPane scrollPane = new JScrollPane(gridPanel);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         panel.add(scrollPane, BorderLayout.CENTER);
         
         return panel;
     }
     
+    // Anime card rendering moved to `UIHelpers.createAnimeCard(...)`.
+    
+    // Edit dialog logic for anime moved to `EditDialogs.editAnime(...)`.
+    
     private JPanel createMangaStatusPanel(String status) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(Color.WHITE);
 
-        JPanel gridPanel = new JPanel(new GridLayout(0, 3, 10, 10));
+        // Use a 2-column GridLayout so cards form two columns and grow horizontally
+        // Build a vertical list of rows where each row is a 1x2 grid.
+        JPanel gridPanel = new JPanel();
+        gridPanel.setLayout(new BoxLayout(gridPanel, BoxLayout.Y_AXIS));
         gridPanel.setBackground(Color.WHITE);
         gridPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
@@ -220,23 +257,50 @@ public class AnimeTrackerApp extends JFrame {
         List<Manga> allManga = api.getAllManga();
 
         List<UserShowEntry> entries = userManga.get(status);
+        List<JPanel> cardList = new ArrayList<>();
         if (entries != null) {
             for (UserShowEntry entry : entries) {
                 for (Manga manga : allManga) {
-                        if (manga.getId().equals(entry.getShowId())) {
-                            JPanel card = UIHelpers.createMangaCard(manga, entry, status, this);
-                            gridPanel.add(card);
-                        }
+                    if (manga.getId().equals(entry.getShowId())) {
+                        JPanel card = UIHelpers.createMangaCard(manga, entry, status, this);
+                        Dimension pref = card.getPreferredSize();
+                        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, pref.height));
+                        card.setAlignmentY(Component.TOP_ALIGNMENT);
+                        cardList.add(card);
+                    }
                 }
             }
         }
 
+        for (int i = 0; i < cardList.size(); i += 2) {
+            JPanel row = new JPanel(new GridLayout(1, 2, 10, 10));
+            row.setBackground(Color.WHITE);
+            JPanel left = cardList.get(i);
+            JPanel right = (i + 1 < cardList.size()) ? cardList.get(i + 1) : new JPanel();
+            right.setBackground(Color.WHITE);
+            row.add(left);
+            row.add(right);
+            Dimension pref = left.getPreferredSize();
+            row.setMaximumSize(new Dimension(Integer.MAX_VALUE, pref.height));
+            gridPanel.add(row);
+            gridPanel.add(Box.createVerticalStrut(10));
+        }
+
         JScrollPane scrollPane = new JScrollPane(gridPanel);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         panel.add(scrollPane, BorderLayout.CENTER);
 
         return panel;
     }
+
+    // Manga card rendering moved to `UIHelpers.createMangaCard(...)`.
+    
+    // Edit dialog logic for manga moved to `EditDialogs.editManga(...)`.
+    
+    // addAnimeToList moved to `AddToListActions.addAnimeToList(...)`.
+    
+    // addMangaToList moved to `AddToListActions.addMangaToList(...)`.
     
     private JPanel createAdminPanel() {
         JPanel panel = new JPanel(new BorderLayout());
@@ -271,6 +335,12 @@ public class AnimeTrackerApp extends JFrame {
         panel.add(centerPanel, BorderLayout.CENTER);
         return panel;
     }
+    
+    // addAnimeToDatabase moved to `AdminActions.addAnimeToDatabase(...)`.
+    
+    // addMangaToDatabase moved to `AdminActions.addMangaToDatabase(...)`.
+    
+    // Local UI helper methods moved to `UIHelpers`.
     
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {

@@ -14,6 +14,6 @@ ANIME|8893951b-08b3-415d-a740-d1d79e950ce4|Plan to Watch|0|-1
 ANIME|86dd434e-8919-466d-a175-c73eebd1f48f|Completed|12|7
 ANIME|dad52650-b0bb-48a3-8e58-ca08ed9a4992|Completed|14|7
 ANIME|06538858-4175-4af3-9a42-4487528aa54c|Completed|28|10
-MANGA|e7d192ce-cd19-44ca-9a10-759f9e1638a5|Reading|150|8
+MANGA|e7d192ce-cd19-44ca-9a10-759f9e1638a5|Reading|151|8
 MANGA|d4b092d4-1ade-4052-b0c7-6ffb1704dd29|Completed|101|7
 MANGA|9ec89f08-b493-44ee-927d-69e6aa23b2ef|Plan to Read|0|-1
