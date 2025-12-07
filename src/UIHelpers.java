@@ -158,7 +158,7 @@ public class UIHelpers {
      * Builds the shared card UI and returns its parts so caller can wire behavior.
      */
     private static CardParts createCard(String id, String title, String imageUrl, int progress, int total, int rating, String typeText, AnimeTrackerApp app) {
-        int cardHeight = 120;
+        int cardHeight = 140;
         int posterWidth = 105;
 
         RoundedPanel card = new RoundedPanel(Theme.BACKGROUND, 10);
@@ -210,7 +210,8 @@ public class UIHelpers {
         ratingBox.setLayout(new FlowLayout(FlowLayout.LEFT, 4, 0));
         JLabel star = new JLabel("\u2605");
         star.setForeground(new Color(255, 176, 0));
-        star.setFont(new Font("Arial", Font.PLAIN, 14));
+        // Use a logical font that reliably contains the star glyph on most platforms
+        star.setFont(new Font("SansSerif", Font.PLAIN, 14));
         JLabel ratingLabel = new JLabel((rating >= 0) ? formatRating(rating) : "—");
         ratingLabel.setForeground(Theme.SECONDARY);
         ratingLabel.setFont(new Font("Arial", Font.PLAIN, 12));
