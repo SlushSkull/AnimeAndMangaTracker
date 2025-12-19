@@ -7,3 +7,9 @@ ANIME|f3f9cf68-58bf-41cc-a468-cc954988c7ff|Dropped|3|3
 ANIME|4e318221-4530-4dce-83e1-a16a2070fe33|Completed|12|7
 ANIME|06538858-4175-4af3-9a42-4487528aa54c|Completed|28|10
 ANIME|86dd434e-8919-466d-a175-c73eebd1f48f|Watching|7|7
+ANIME|e1e3ea6a-b0ec-461d-bcbf-88c9f4a19736|Plan to Watch|0|-1
+ANIME|4844dee2-1d23-4250-aa08-a1b6e53141d4|Plan to Watch|0|-1
+ANIME|26ec8291-db95-43c4-a595-3a8b963a735d|Plan to Watch|0|-1
+ANIME|38a8d693-8aab-42f6-8032-9b2a0a4a013d|Plan to Watch|0|-1
+ANIME|540d5e23-a000-44ec-be1b-9ccb0b26c0bc|Plan to Watch|0|-1
+MANGA|d4b092d4-1ade-4052-b0c7-6ffb1704dd29|Dropped|40|-1

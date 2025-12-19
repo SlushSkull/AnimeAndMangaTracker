@@ -1,4 +1,4 @@
-ANIME|47ba2912-5f01-4c37-af2c-54c1869947e9|Completed|12|7
+ANIME|47ba2912-5f01-4c37-af2c-54c1869947e9|Watching|10|7
 ANIME|e4ecab67-436e-4516-97bd-2cf18ea43f2e|Completed|12|8
 ANIME|a9d15381-bd7f-477b-b885-9623a0fa6fa1|Completed|24|9
 ANIME|0baa477f-7f2d-4246-ae3b-9c13e6a3e7ff|Completed|12|8
