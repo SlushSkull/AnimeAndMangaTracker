@@ -22,3 +22,4 @@ ANIME|4844dee2-1d23-4250-aa08-a1b6e53141d4|Completed|291|7
 ANIME|26ec8291-db95-43c4-a595-3a8b963a735d|Completed|64|8
 ANIME|38a8d693-8aab-42f6-8032-9b2a0a4a013d|Completed|131|7
 ANIME|540d5e23-a000-44ec-be1b-9ccb0b26c0bc|Completed|20|8
+ANIME|2e95fa7f-a09e-4d44-9860-4701d7a014de|Completed|12|8
